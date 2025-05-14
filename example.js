@@ -20,23 +20,23 @@ async function main() {
     console.log("Balance:", balance);
 
     // Get user info
-    const userInfo = await fragment.getUserInfo("Night", fragmentCookies);
+    const userInfo = await fragment.getUserInfo("NightStrang6r", fragmentCookies);
     console.log("User info:", userInfo);
 
     // Buy stars without KYC
-    const starsNoKYC = await fragment.buyStarsWithoutKYC("Night", 100, seed);
+    const starsNoKYC = await fragment.buyStarsWithoutKYC("NightStrang6r", 100, seed);
     console.log("Buy stars without KYC response:", starsNoKYC);
 
     // Buy stars
-    const stars = await fragment.buyStars("Night", 100, false, fragmentCookies, seed);
+    const stars = await fragment.buyStars("NightStrang6r", 100, false, fragmentCookies, seed);
     console.log("Buy stars response:", stars);
 
     // Buy Telegram Premium without KYC
-    const premiumNoKYC = await fragment.buyPremiumWithoutKYC("Night", 3, seed);
+    const premiumNoKYC = await fragment.buyPremiumWithoutKYC("NightStrang6r", 3, seed);
     console.log("Buy Telegram Premium without KYC response:", premiumNoKYC);
 
     // Buy Telegram Premium
-    const premium = await fragment.buyPremium("Night", 3, false, fragmentCookies, seed);
+    const premium = await fragment.buyPremium("NightStrang6r", 3, false, fragmentCookies, seed);
     console.log("Buy Telegram Premium response:", premium);
 
     // Get orders
