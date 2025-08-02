@@ -38,3 +38,62 @@ export interface GetOrdersRequest {
   limit?: number;
   offset?: number;
 }
+
+export interface CreateAuthKeyRequest {
+  fragment_cookies: string;
+  seed: string;
+}
+
+export interface CreatePremiumOrderRequest {
+  username: string;
+  duration?: number;
+  fragment_cookies: string;
+  show_sender?: boolean;
+}
+
+export interface CreatePremiumWithoutKYCOrderRequest {
+  username: string;
+  duration?: number;
+}
+
+export interface CreateStarsOrderRequest {
+  username: string;
+  amount: number;
+  fragment_cookies: string;
+  show_sender?: boolean;
+}
+
+export interface CreateStarsWithoutKYCOrderRequest {
+  username: string;
+  amount: number;
+}
+
+export interface PayPremiumOrderRequest {
+  order_uuid: string;
+  seed: string;
+  fragment_cookies: string;
+  cost: number;
+  wallet_type?: string;
+}
+
+export interface PayPremiumWithoutKYCOrderRequest {
+  order_uuid: string;
+  seed: string;
+  cost: number;
+  wallet_type?: string;
+}
+
+export interface PayStarsOrderRequest {
+  order_uuid: string;
+  seed: string;
+  fragment_cookies: string;
+  cost: number;
+  wallet_type?: string;
+}
+
+export interface PayStarsWithoutKYCOrderRequest {
+  order_uuid: string;
+  seed: string;
+  cost: number;
+  wallet_type?: string;
+}

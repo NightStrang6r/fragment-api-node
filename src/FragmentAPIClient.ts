@@ -4,8 +4,17 @@ import {
   BuyPremiumWithoutKYCRequest,
   BuyStarsRequest,
   BuyStarsWithoutKYCRequest,
+  CreatePremiumOrderRequest,
+  CreatePremiumWithoutKYCOrderRequest,
+  CreateStarsOrderRequest,
+  CreateStarsWithoutKYCOrderRequest,
+  PayPremiumOrderRequest,
+  PayPremiumWithoutKYCOrderRequest,
+  PayStarsOrderRequest,
+  PayStarsWithoutKYCOrderRequest,
   FragmentAPIError,
   GetOrdersRequest,
+  CreateAuthKeyRequest
 } from "./models.js";
 
 export default class FragmentAPIClient {
@@ -124,5 +133,331 @@ export default class FragmentAPIClient {
       offset,
     };
     return this.post("/getOrders", req);
+  }
+
+  private async delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  createAuthKey(fragmentCookies: string, seed: string) {
+    const req: CreateAuthKeyRequest = {
+      fragment_cookies: fragmentCookies,
+      seed: seed
+    };
+    return this.post("/v2/auth", req);
+  }
+
+  createPremiumOrder(username: string, duration = 3, fragmentCookies: string, showSender = false) {
+    const req: CreatePremiumOrderRequest = {
+      username,
+      duration,
+      fragment_cookies: this.getFragmentCookies(fragmentCookies),
+      show_sender: showSender,
+    };
+    return this.post("/v2/buyPremium/create", req);
+  }
+
+  createPremiumWithoutKYCOrder(username: string, duration = 3) {
+    const req: CreatePremiumWithoutKYCOrderRequest = {
+      username,
+      duration
+    };
+    return this.post("/v2/buyPremiumWithoutKYC/create", req);
+  }
+
+  createStarsOrder(username: string, amount: number, fragmentCookies: string, showSender = false) {
+    const req: CreateStarsOrderRequest = {
+      username,
+      amount,
+      fragment_cookies: this.getFragmentCookies(fragmentCookies),
+      show_sender: showSender,
+    };
+    return this.post("/v2/buyStars/create", req);
+  }
+
+  createStarsWithoutKYCOrder(username: string, amount: number) {
+    const req: CreateStarsWithoutKYCOrderRequest = {
+      username,
+      amount
+    };
+    return this.post("/v2/buyStarsWithoutKYC/create", req);
+  }
+
+  payPremiumOrder(order_uuid: string, seed: string, fragmentCookies: string, cost: number, walletType?: string) {
+    const req: PayPremiumOrderRequest = {
+      order_uuid,
+      seed: this.getSeed(seed),
+      fragment_cookies: this.getFragmentCookies(fragmentCookies),
+      cost,
+      wallet_type: walletType,
+    };
+    return this.post("/v2/buyPremium/pay", req);
+  }
+
+  payPremiumWithoutKYCOrder(order_uuid: string, seed: string, cost: number, walletType?: string) {
+    const req: PayPremiumWithoutKYCOrderRequest = {
+      order_uuid,
+      seed: this.getSeed(seed),
+      cost,
+      wallet_type: walletType,
+    };
+    return this.post("/v2/buyPremiumWithoutKYC/pay", req);
+  }
+
+  payStarsOrder(order_uuid: string, seed: string, fragmentCookies: string, cost: number, walletType?: string) {
+    const req: PayStarsOrderRequest = {
+      order_uuid,
+      seed: this.getSeed(seed),
+      fragment_cookies: this.getFragmentCookies(fragmentCookies),
+      cost,
+      wallet_type: walletType,
+    };
+    return this.post("/v2/buyStars/pay", req);
+  }
+
+  payStarsWithoutKYCOrder(order_uuid: string, seed: string, cost: number, walletType?: string) {
+    const req: PayStarsWithoutKYCOrderRequest = {
+      order_uuid,
+      seed: this.getSeed(seed),
+      cost,
+      wallet_type: walletType,
+    };
+    return this.post("/v2/buyStarsWithoutKYC/pay", req);
+  }
+
+  getPremiumOrderStatus(order_uuid: string) {
+    return this.get(`/v2/buyPremium/check?uuid=${order_uuid}`);
+  }
+
+  getPremiumWithoutKYCOrderStatus(order_uuid: string) {
+    return this.get(`/v2/buyPremiumWithoutKYC/check?uuid=${order_uuid}`);
+  }
+
+  getStarsOrderStatus(order_uuid: string) {
+    return this.get(`/v2/buyStars/check?uuid=${order_uuid}`);
+  }
+
+  getStarsWithoutKYCOrderStatus(order_uuid: string) {
+    return this.get(`/v2/buyStarsWithoutKYC/check?uuid=${order_uuid}`);
+  }
+
+
+  async buyPremiumV2(username: string, duration = 3, authKey?: string, walletType = "v4r2", showSender = false) {
+    const createResp = await this.post("/v2/buyPremium/create", {
+      username,
+      duration,
+      auth_key: authKey,
+      show_sender: showSender
+    });
+
+    if (!createResp.success) {
+      throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+    }
+
+    const orderId = createResp.order_id;
+    const cost = createResp.cost;
+
+    let lastError: any = null;
+    let payResp: any = null;
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        payResp = await this.post("/v2/buyPremium/pay", {
+          order_uuid: orderId,
+          auth_key: authKey,
+          cost,
+          wallet_type: walletType,
+        });
+
+        if (payResp.success) {
+          return payResp;
+        } else {
+          throw new FragmentAPIError(`Pay error: ${payResp.message}`);
+        }
+      } catch (err: any) {
+        lastError = err;
+
+        if (err.message?.startsWith("4")) {
+          throw err;
+        }
+
+        await this.delay(1000);
+      }
+    }
+
+    try {
+      const checkResp = await this.get(`/v2/buyPremium/check?uuid=${orderId}`);
+      if (checkResp.success) {
+        return checkResp;
+      } else {
+        throw new FragmentAPIError(`Check failed: ${checkResp.message}`);
+      }
+    } catch (checkErr) {
+      throw lastError || checkErr;
+    }
+  }
+
+  async buyStarsV2(username: string, amount = 50, authKey?: string, walletType = "v4r2", showSender = false) {
+
+    const createResp = await this.post("/v2/buyStars/create", {
+      username,
+      amount,
+      auth_key: authKey,
+      show_sender: showSender
+    });
+
+    if (!createResp.success) {
+      throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+    }
+
+    const orderId = createResp.order_id;
+    const cost = createResp.cost;
+
+    let lastError: any = null;
+    let payResp: any = null;
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        payResp = await this.post("/v2/buyStars/pay", {
+          order_uuid: orderId,
+          auth_key: authKey,
+          cost,
+          wallet_type: walletType,
+        });
+
+        if (payResp.success) {
+          return payResp;
+        } else {
+          throw new FragmentAPIError(`Pay error: ${payResp.message}`);
+        }
+      } catch (err: any) {
+        lastError = err;
+
+        if (err.message?.startsWith("4")) {
+          throw err;
+        }
+
+        await this.delay(1000);
+      }
+    }
+
+    try {
+      const checkResp = await this.get(`/v2/buyStars/check?uuid=${orderId}`);
+      if (checkResp.success) {
+        return checkResp;
+      } else {
+        throw new FragmentAPIError(`Check failed: ${checkResp.message}`);
+      }
+    } catch (checkErr) {
+      throw lastError || checkErr;
+    }
+  }
+
+  async buyPremiumWithoutKYCV2(username: string, duration = 3, authKey?: string, walletType = "v4r2") {
+
+    const createResp = await this.post("/v2/buyPremiumWithoutKYC/create", {
+      username,
+      duration
+    });
+
+    if (!createResp.success) {
+      throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+    }
+
+    const orderId = createResp.order_id;
+    const cost = createResp.cost;
+
+    let lastError: any = null;
+    let payResp: any = null;
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        payResp = await this.post("/v2/buyPremiumWithoutKYC/pay", {
+          order_uuid: orderId,
+          auth_key: authKey,
+          cost,
+          wallet_type: walletType,
+        });
+
+        if (payResp.success) {
+          return payResp;
+        } else {
+          throw new FragmentAPIError(`Pay error: ${payResp.message}`);
+        }
+      } catch (err: any) {
+        lastError = err;
+
+        if (err.message?.startsWith("4")) {
+          throw err;
+        }
+
+        await this.delay(1000);
+      }
+    }
+
+    try {
+      const checkResp = await this.get(`/v2/buyPremiumWithoutKYC/check?uuid=${orderId}`);
+      if (checkResp.success) {
+        return checkResp;
+      } else {
+        throw new FragmentAPIError(`Check failed: ${checkResp.message}`);
+      }
+    } catch (checkErr) {
+      throw lastError || checkErr;
+    }
+  }
+
+  async buyStarsWithoutKYCV2(username: string, amount = 50, authKey?: string, walletType = "v4r2", showSender = false) {
+
+    const createResp = await this.post("/v2/buyStarsWithoutKYC/create", {
+      username,
+      amount
+    });
+
+    if (!createResp.success) {
+      throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+    }
+
+    const orderId = createResp.order_id;
+    const cost = createResp.cost;
+
+    let lastError: any = null;
+    let payResp: any = null;
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        payResp = await this.post("/v2/buyStarsWithoutKYC/pay", {
+          order_uuid: orderId,
+          auth_key: authKey,
+          cost,
+          wallet_type: walletType,
+        });
+
+        if (payResp.success) {
+          return payResp;
+        } else {
+          throw new FragmentAPIError(`Pay error: ${payResp.message}`);
+        }
+      } catch (err: any) {
+        lastError = err;
+
+        if (err.message?.startsWith("4")) {
+          throw err;
+        }
+
+        await this.delay(1000);
+      }
+    }
+
+    try {
+      const checkResp = await this.get(`/v2/buyStarsWithoutKYC/check?uuid=${orderId}`);
+      if (checkResp.success) {
+        return checkResp;
+      } else {
+        throw new FragmentAPIError(`Check failed: ${checkResp.message}`);
+      }
+    } catch (checkErr) {
+      throw lastError || checkErr;
+    }
   }
 }
