@@ -87,7 +87,7 @@ export default class FragmentAPIClient {
 
   async buyStars(username: string, amount = 3, authKey?: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyStars/create", {
-      username,
+      username: username,
       amount,
       auth_key: authKey,
       show_sender: showSender
@@ -99,7 +99,7 @@ export default class FragmentAPIClient {
         for (let attempt = 1; attempt <= 5; attempt++) {
           await this.delay(1000 * attempt);
           const retryResp = await this.post("/v2/buyStars/create", {
-            username,
+            username: username,
             amount: amount,
             auth_key: authKey,
             show_sender: showSender
@@ -190,8 +190,8 @@ export default class FragmentAPIClient {
 
     async buyStarsWithoutKYC(username: string, amount = 3, authKey?: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyStarsWithoutKYC/create", {
-      username,
-      amount
+      username: username,
+      amount: amount
     });
 
     if (!createResp.success) {
@@ -204,7 +204,7 @@ export default class FragmentAPIClient {
         for (let attempt = 1; attempt <= 5; attempt++) {
           await this.delay(1000 * attempt);
           const retryResp = await this.post("/v2/buyStarsWithoutKYC/create", {
-            username,
+            username: username,
             amount: amount,
             auth_key: authKey,
             show_sender: showSender
@@ -295,8 +295,8 @@ export default class FragmentAPIClient {
 
   async buyPremium(username: string, duration = 3, authKey?: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyPremium/create", {
-      username,
-      duration,
+      username: username,
+      duration: duration,
       auth_key: authKey,
       show_sender: showSender
     });
@@ -307,8 +307,8 @@ export default class FragmentAPIClient {
         for (let attempt = 1; attempt <= 5; attempt++) {
           await this.delay(1000 * attempt);
           const retryResp = await this.post("/v2/buyPremium/create", {
-            username,
-            duration,
+            username: username,
+            duration: duration,
             auth_key: authKey,
             show_sender: showSender
           });
@@ -398,8 +398,8 @@ export default class FragmentAPIClient {
 
   async buyPremiumWithoutKYC(username: string, duration = 3, authKey?: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyPremiumWithoutKYC/create", {
-      username,
-      duration
+      username: username,
+      duration: duration
     });
 
     if (!createResp.success) {
@@ -408,8 +408,8 @@ export default class FragmentAPIClient {
         for (let attempt = 1; attempt <= 5; attempt++) {
           await this.delay(1000 * attempt);
           const retryResp = await this.post("/v2/buyPremiumWithoutKYC/create", {
-            username,
-            duration,
+            username: username,
+            duration: duration,
             auth_key: authKey,
             show_sender: showSender
           });
