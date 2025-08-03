@@ -85,7 +85,7 @@ export default class FragmentAPIClient {
     return this.get(`/v2/getUserInfo?username=${encodeURIComponent(username)}&fragment_cookies=${encodeURIComponent(encodedCookies)}`);
   }
 
-  async buyStars(username: string, amount: number, authKey?: string, walletType = "v4r2", showSender = false) {
+  async buyStars(username: string, amount = 3, authKey?: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyStars/create", {
       username,
       amount,
@@ -94,7 +94,30 @@ export default class FragmentAPIClient {
     });
 
     if (!createResp.success) {
-      throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "INTERNAL_SERVER_ERROR", "BAD_REQUEST"];
+      if (retryableCreateErrors.includes(createResp.error_code)) {
+        for (let attempt = 1; attempt <= 5; attempt++) {
+          await this.delay(1000 * attempt);
+          const retryResp = await this.post("/v2/buyStars/create", {
+            username,
+            amount: amount,
+            auth_key: authKey,
+            show_sender: showSender
+          });
+          if (retryResp.success) {
+            Object.assign(createResp, retryResp);
+            break;
+          }
+          if (!retryableCreateErrors.includes(retryResp.error_code)) {
+            throw new FragmentAPIError(`Create order failed: ${retryResp.message}`);
+          }
+        }
+        if (!createResp.success) {
+          throw new FragmentAPIError(`Create order failed after retries: ${createResp.message}`);
+        }
+      } else {
+        throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+      }
     }
 
     const orderId = createResp.order_id;
@@ -102,6 +125,13 @@ export default class FragmentAPIClient {
 
     let lastError: any = null;
     let payResp: any = null;
+    let networkErrorDuringPay = false;
+
+    const retryablePayErrors = [
+      "BALANCE_CHECK_ERROR",
+      "TRANSFER_FAILED",
+      "INTERNAL_SERVER_ERROR"
+    ];
 
     for (let attempt = 1; attempt <= 5; attempt++) {
       try {
@@ -115,32 +145,50 @@ export default class FragmentAPIClient {
         if (payResp.success) {
           return payResp;
         } else {
-          throw new FragmentAPIError(`Pay error: ${payResp.message}`);
+          const err = new FragmentAPIError(`Pay error: ${payResp.message}`);
+          (err as any).error_code = payResp.error_code;
+          throw err;
         }
       } catch (err: any) {
         lastError = err;
 
+        if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
+          throw err;
+        }
         if (err.message?.startsWith("4")) {
           throw err;
         }
 
-        await this.delay(1000);
+        networkErrorDuringPay = true;
+
+        await this.delay(1000 * attempt);
       }
     }
 
-    try {
-      const checkResp = await this.get(`/v2/buyStars/check?uuid=${orderId}`);
-      if (checkResp.success) {
-        return checkResp;
-      } else {
-        throw new FragmentAPIError(`Check failed: ${checkResp.message}`);
+    if (networkErrorDuringPay) {
+      const maxCheckRetries = 5;
+      const checkDelayMs = 1000;
+
+      for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
+        try {
+          const checkResp = await this.get(`/v2/buyStars/check?uuid=${orderId}`);
+          if (checkResp.success) {
+            return checkResp;
+          }
+        } catch (checkErr) {
+          if (checkAttempt === maxCheckRetries) {
+            throw lastError || checkErr;
+          }
+          await this.delay(checkDelayMs);
+        }
       }
-    } catch (checkErr) {
-      throw lastError || checkErr;
     }
+
+    throw lastError;
   }
 
-  async buyStarsWithoutKYC(username: string, amount: number, authKey?: string, walletType = "v4r2") {
+
+    async buyStarsWithoutKYC(username: string, amount = 3, authKey?: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyStarsWithoutKYC/create", {
       username,
       amount
@@ -150,11 +198,46 @@ export default class FragmentAPIClient {
       throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
     }
 
+    if (!createResp.success) {
+      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "INTERNAL_SERVER_ERROR", "BAD_REQUEST"];
+      if (retryableCreateErrors.includes(createResp.error_code)) {
+        for (let attempt = 1; attempt <= 5; attempt++) {
+          await this.delay(1000 * attempt);
+          const retryResp = await this.post("/v2/buyStarsWithoutKYC/create", {
+            username,
+            amount: amount,
+            auth_key: authKey,
+            show_sender: showSender
+          });
+          if (retryResp.success) {
+            Object.assign(createResp, retryResp);
+            break;
+          }
+          if (!retryableCreateErrors.includes(retryResp.error_code)) {
+            throw new FragmentAPIError(`Create order failed: ${retryResp.message}`);
+          }
+        }
+        if (!createResp.success) {
+          throw new FragmentAPIError(`Create order failed after retries: ${createResp.message}`);
+        }
+      } else {
+        throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+      }
+    }
+
     const orderId = createResp.order_id;
     const cost = createResp.cost;
 
     let lastError: any = null;
     let payResp: any = null;
+    let networkErrorDuringPay = false;
+
+    const retryablePayErrors = [
+      "BALANCE_CHECK_ERROR",
+      "TRANSFER_FAILED",
+      "TRANSFER_TO_MIDDLE_FAILED",
+      "INTERNAL_SERVER_ERROR"
+    ];
 
     for (let attempt = 1; attempt <= 5; attempt++) {
       try {
@@ -168,29 +251,46 @@ export default class FragmentAPIClient {
         if (payResp.success) {
           return payResp;
         } else {
-          throw new FragmentAPIError(`Pay error: ${payResp.message}`);
+          const err = new FragmentAPIError(`Pay error: ${payResp.message}`);
+          (err as any).error_code = payResp.error_code;
+          throw err;
         }
       } catch (err: any) {
         lastError = err;
 
+        if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
+          throw err;
+        }
         if (err.message?.startsWith("4")) {
           throw err;
         }
 
-        await this.delay(1000);
+        networkErrorDuringPay = true;
+
+        await this.delay(1000 * attempt);
       }
     }
 
-    try {
-      const checkResp = await this.get(`/v2/buyStarsWithoutKYC/check?uuid=${orderId}`);
-      if (checkResp.success) {
-        return checkResp;
-      } else {
-        throw new FragmentAPIError(`Check failed: ${checkResp.message}`);
+    if (networkErrorDuringPay) {
+      const maxCheckRetries = 5;
+      const checkDelayMs = 1000;
+
+      for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
+        try {
+          const checkResp = await this.get(`/v2/buyStarsWithoutKYC/check?uuid=${orderId}`);
+          if (checkResp.success) {
+            return checkResp;
+          }
+        } catch (checkErr) {
+          if (checkAttempt === maxCheckRetries) {
+            throw lastError || checkErr;
+          }
+          await this.delay(checkDelayMs);
+        }
       }
-    } catch (checkErr) {
-      throw lastError || checkErr;
     }
+
+    throw lastError;
   }
 
   async buyPremium(username: string, duration = 3, authKey?: string, walletType = "v4r2", showSender = false) {
@@ -202,7 +302,30 @@ export default class FragmentAPIClient {
     });
 
     if (!createResp.success) {
-      throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "INTERNAL_SERVER_ERROR"];
+      if (retryableCreateErrors.includes(createResp.error_code)) {
+        for (let attempt = 1; attempt <= 5; attempt++) {
+          await this.delay(1000 * attempt);
+          const retryResp = await this.post("/v2/buyPremium/create", {
+            username,
+            duration,
+            auth_key: authKey,
+            show_sender: showSender
+          });
+          if (retryResp.success) {
+            Object.assign(createResp, retryResp);
+            break;
+          }
+          if (!retryableCreateErrors.includes(retryResp.error_code)) {
+            throw new FragmentAPIError(`Create order failed: ${retryResp.message}`);
+          }
+        }
+        if (!createResp.success) {
+          throw new FragmentAPIError(`Create order failed after retries: ${createResp.message}`);
+        }
+      } else {
+        throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+      }
     }
 
     const orderId = createResp.order_id;
@@ -210,6 +333,13 @@ export default class FragmentAPIClient {
 
     let lastError: any = null;
     let payResp: any = null;
+    let networkErrorDuringPay = false;
+
+    const retryablePayErrors = [
+      "BALANCE_CHECK_ERROR",
+      "TRANSFER_FAILED",
+      "INTERNAL_SERVER_ERROR"
+    ];
 
     for (let attempt = 1; attempt <= 5; attempt++) {
       try {
@@ -223,39 +353,80 @@ export default class FragmentAPIClient {
         if (payResp.success) {
           return payResp;
         } else {
-          throw new FragmentAPIError(`Pay error: ${payResp.message}`);
+          const err = new FragmentAPIError(`Pay error: ${payResp.message}`);
+          (err as any).error_code = payResp.error_code;
+          throw err;
         }
       } catch (err: any) {
         lastError = err;
 
+        if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
+          throw err;
+        }
         if (err.message?.startsWith("4")) {
           throw err;
         }
 
-        await this.delay(1000);
+        networkErrorDuringPay = true;
+
+        await this.delay(1000 * attempt);
       }
     }
 
-    try {
-      const checkResp = await this.get(`/v2/buyPremium/check?uuid=${orderId}`);
-      if (checkResp.success) {
-        return checkResp;
-      } else {
-        throw new FragmentAPIError(`Check failed: ${checkResp.message}`);
+    if (networkErrorDuringPay) {
+      const maxCheckRetries = 5;
+      const checkDelayMs = 1000;
+
+      for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
+        try {
+          const checkResp = await this.get(`/v2/buyPremium/check?uuid=${orderId}`);
+          if (checkResp.success) {
+            return checkResp;
+          }
+        } catch (checkErr) {
+          if (checkAttempt === maxCheckRetries) {
+            throw lastError || checkErr;
+          }
+          await this.delay(checkDelayMs);
+        }
       }
-    } catch (checkErr) {
-      throw lastError || checkErr;
     }
+
+    throw lastError;
   }
 
-  async buyPremiumWithoutKYC(username: string, duration = 3, authKey?: string, walletType = "v4r2") {
+
+  async buyPremiumWithoutKYC(username: string, duration = 3, authKey?: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyPremiumWithoutKYC/create", {
       username,
       duration
     });
 
     if (!createResp.success) {
-      throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "INTERNAL_SERVER_ERROR"];
+      if (retryableCreateErrors.includes(createResp.error_code)) {
+        for (let attempt = 1; attempt <= 5; attempt++) {
+          await this.delay(1000 * attempt);
+          const retryResp = await this.post("/v2/buyPremiumWithoutKYC/create", {
+            username,
+            duration,
+            auth_key: authKey,
+            show_sender: showSender
+          });
+          if (retryResp.success) {
+            Object.assign(createResp, retryResp);
+            break;
+          }
+          if (!retryableCreateErrors.includes(retryResp.error_code)) {
+            throw new FragmentAPIError(`Create order failed: ${retryResp.message}`);
+          }
+        }
+        if (!createResp.success) {
+          throw new FragmentAPIError(`Create order failed after retries: ${createResp.message}`);
+        }
+      } else {
+        throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
+      }
     }
 
     const orderId = createResp.order_id;
@@ -263,6 +434,14 @@ export default class FragmentAPIClient {
 
     let lastError: any = null;
     let payResp: any = null;
+    let networkErrorDuringPay = false;
+
+    const retryablePayErrors = [
+      "BALANCE_CHECK_ERROR",
+      "TRANSFER_FAILED",
+      "TRANSFER_TO_MIDDLE_FAILED",
+      "INTERNAL_SERVER_ERROR"
+    ];
 
     for (let attempt = 1; attempt <= 5; attempt++) {
       try {
@@ -276,29 +455,46 @@ export default class FragmentAPIClient {
         if (payResp.success) {
           return payResp;
         } else {
-          throw new FragmentAPIError(`Pay error: ${payResp.message}`);
+          const err = new FragmentAPIError(`Pay error: ${payResp.message}`);
+          (err as any).error_code = payResp.error_code;
+          throw err;
         }
       } catch (err: any) {
         lastError = err;
 
+        if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
+          throw err;
+        }
         if (err.message?.startsWith("4")) {
           throw err;
         }
 
-        await this.delay(1000);
+        networkErrorDuringPay = true;
+
+        await this.delay(1000 * attempt);
       }
     }
 
-    try {
-      const checkResp = await this.get(`/v2/buyPremiumWithoutKYC/check?uuid=${orderId}`);
-      if (checkResp.success) {
-        return checkResp;
-      } else {
-        throw new FragmentAPIError(`Check failed: ${checkResp.message}`);
+    if (networkErrorDuringPay) {
+      const maxCheckRetries = 5;
+      const checkDelayMs = 1000;
+
+      for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
+        try {
+          const checkResp = await this.get(`/v2/buyPremiumWithoutKYC/check?uuid=${orderId}`);
+          if (checkResp.success) {
+            return checkResp;
+          }
+        } catch (checkErr) {
+          if (checkAttempt === maxCheckRetries) {
+            throw lastError || checkErr;
+          }
+          await this.delay(checkDelayMs);
+        }
       }
-    } catch (checkErr) {
-      throw lastError || checkErr;
     }
+
+    throw lastError;
   }
 
   getOrders(seed?: string, limit = 10, offset = 0) {
