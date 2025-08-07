@@ -90,7 +90,7 @@ export default class FragmentAPIClient {
     });
 
     if (!createResp.success) {
-      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "INTERNAL_SERVER_ERROR", "BAD_REQUEST"];
+      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "BAD_REQUEST"];
       if (retryableCreateErrors.includes(createResp.error_code)) {
         for (let attempt = 1; attempt <= 5; attempt++) {
           await this.delay(1000 * attempt);
@@ -125,8 +125,7 @@ export default class FragmentAPIClient {
 
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
-      "TRANSFER_FAILED",
-      "INTERNAL_SERVER_ERROR"
+      "TRANSFER_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 5; attempt++) {
@@ -195,7 +194,7 @@ export default class FragmentAPIClient {
     }
 
     if (!createResp.success) {
-      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "INTERNAL_SERVER_ERROR", "BAD_REQUEST"];
+      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "BAD_REQUEST"];
       if (retryableCreateErrors.includes(createResp.error_code)) {
         for (let attempt = 1; attempt <= 5; attempt++) {
           await this.delay(1000 * attempt);
@@ -231,8 +230,7 @@ export default class FragmentAPIClient {
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
       "TRANSFER_FAILED",
-      "TRANSFER_TO_MIDDLE_FAILED",
-      "INTERNAL_SERVER_ERROR"
+      "TRANSFER_TO_MIDDLE_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 5; attempt++) {
@@ -298,7 +296,7 @@ export default class FragmentAPIClient {
     });
 
     if (!createResp.success) {
-      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "INTERNAL_SERVER_ERROR"];
+      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED"];
       if (retryableCreateErrors.includes(createResp.error_code)) {
         for (let attempt = 1; attempt <= 5; attempt++) {
           await this.delay(1000 * attempt);
@@ -333,8 +331,7 @@ export default class FragmentAPIClient {
 
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
-      "TRANSFER_FAILED",
-      "INTERNAL_SERVER_ERROR"
+      "TRANSFER_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 5; attempt++) {
@@ -399,7 +396,7 @@ export default class FragmentAPIClient {
     });
 
     if (!createResp.success) {
-      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "INTERNAL_SERVER_ERROR"];
+      const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED"];
       if (retryableCreateErrors.includes(createResp.error_code)) {
         for (let attempt = 1; attempt <= 5; attempt++) {
           await this.delay(1000 * attempt);
@@ -435,8 +432,7 @@ export default class FragmentAPIClient {
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
       "TRANSFER_FAILED",
-      "TRANSFER_TO_MIDDLE_FAILED",
-      "INTERNAL_SERVER_ERROR"
+      "TRANSFER_TO_MIDDLE_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 5; attempt++) {
