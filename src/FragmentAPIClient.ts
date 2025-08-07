@@ -157,27 +157,34 @@ export default class FragmentAPIClient {
     }
 
     if (networkErrorDuringPay) {
-      const maxCheckRetries = 3;
-      const checkDelayMs = 1000;
+      const maxCheckDurationMs = 2 * 60 * 1000;
+      const checkIntervalMs = 15 * 1000;
+      const startTime = Date.now();
 
-      for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
+      while (Date.now() - startTime < maxCheckDurationMs) {
         try {
           const checkResp = await this.get(`/v2/buyStars/check?uuid=${orderId}`);
-          if (checkResp.success) {
+          
+          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
             return checkResp;
           }
-        } catch (checkErr) {
-          if (checkAttempt === maxCheckRetries) {
-            throw lastError || checkErr;
+        } catch (checkErr: any) {
+          if (checkErr?.error_code !== "ORDER_ALREADY_PROCESSING") {
+            return checkErr;
           }
-          await this.delay(checkDelayMs);
         }
+
+        await this.delay(checkIntervalMs);
       }
+
+      return {
+        success: false,
+        message: "Timed out waiting for processing to finish",
+        error_code: "ORDER_ALREADY_PROCESSING_TIMEOUT"
+      };
     }
-
     throw lastError;
-  }
-
+  } 
 
   async buyStarsWithoutKYC(username: string, amount = 3, authKey?: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyStarsWithoutKYC/create", {
@@ -258,22 +265,31 @@ export default class FragmentAPIClient {
     }
 
     if (networkErrorDuringPay) {
-      const maxCheckRetries = 3;
-      const checkDelayMs = 1000;
+      const maxCheckDurationMs = 2 * 60 * 1000;
+      const checkIntervalMs = 15 * 1000;
+      const startTime = Date.now();
 
-      for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
+      while (Date.now() - startTime < maxCheckDurationMs) {
         try {
           const checkResp = await this.get(`/v2/buyStarsWithoutKYC/check?uuid=${orderId}`);
-          if (checkResp.success) {
+          
+          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
             return checkResp;
           }
-        } catch (checkErr) {
-          if (checkAttempt === maxCheckRetries) {
-            throw lastError || checkErr;
+        } catch (checkErr: any) {
+          if (checkErr?.error_code !== "ORDER_ALREADY_PROCESSING") {
+            return checkErr;
           }
-          await this.delay(checkDelayMs);
         }
+
+        await this.delay(checkIntervalMs);
       }
+
+      return {
+        success: false,
+        message: "Timed out waiting for processing to finish",
+        error_code: "ORDER_ALREADY_PROCESSING_TIMEOUT"
+      };
     }
 
     throw lastError;
@@ -359,22 +375,31 @@ export default class FragmentAPIClient {
     }
 
     if (networkErrorDuringPay) {
-      const maxCheckRetries = 3;
-      const checkDelayMs = 1000;
+      const maxCheckDurationMs = 2 * 60 * 1000;
+      const checkIntervalMs = 15 * 1000;
+      const startTime = Date.now();
 
-      for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
+      while (Date.now() - startTime < maxCheckDurationMs) {
         try {
           const checkResp = await this.get(`/v2/buyPremium/check?uuid=${orderId}`);
-          if (checkResp.success) {
+          
+          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
             return checkResp;
           }
-        } catch (checkErr) {
-          if (checkAttempt === maxCheckRetries) {
-            throw lastError || checkErr;
+        } catch (checkErr: any) {
+          if (checkErr?.error_code !== "ORDER_ALREADY_PROCESSING") {
+            return checkErr;
           }
-          await this.delay(checkDelayMs);
         }
+
+        await this.delay(checkIntervalMs);
       }
+
+      return {
+        success: false,
+        message: "Timed out waiting for processing to finish",
+        error_code: "ORDER_ALREADY_PROCESSING_TIMEOUT"
+      };
     }
 
     throw lastError;
@@ -460,22 +485,31 @@ export default class FragmentAPIClient {
     }
 
     if (networkErrorDuringPay) {
-      const maxCheckRetries = 3;
-      const checkDelayMs = 1000;
+      const maxCheckDurationMs = 2 * 60 * 1000;
+      const checkIntervalMs = 15 * 1000;
+      const startTime = Date.now();
 
-      for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
+      while (Date.now() - startTime < maxCheckDurationMs) {
         try {
           const checkResp = await this.get(`/v2/buyPremiumWithoutKYC/check?uuid=${orderId}`);
-          if (checkResp.success) {
+          
+          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
             return checkResp;
           }
-        } catch (checkErr) {
-          if (checkAttempt === maxCheckRetries) {
-            throw lastError || checkErr;
+        } catch (checkErr: any) {
+          if (checkErr?.error_code !== "ORDER_ALREADY_PROCESSING") {
+            return checkErr;
           }
-          await this.delay(checkDelayMs);
         }
+
+        await this.delay(checkIntervalMs);
       }
+
+      return {
+        success: false,
+        message: "Timed out waiting for processing to finish",
+        error_code: "ORDER_ALREADY_PROCESSING_TIMEOUT"
+      };
     }
 
     throw lastError;
