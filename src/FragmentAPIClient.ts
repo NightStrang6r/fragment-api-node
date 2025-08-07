@@ -48,16 +48,12 @@ export default class FragmentAPIClient {
     }
   }
 
-  private base64Encode(data: string): string {
-    return Buffer.from(data, "utf-8").toString("base64");
-  }
-
   private getSeed(seed?: string): string {
     const usedSeed = seed?.trim() || this.defaultSeed?.trim();
     if (!usedSeed) throw new FragmentAPIError("Seed not provided and no default seed set.");
     const wordCount = usedSeed.split(" ").length;
     if (![12, 24].includes(wordCount)) throw new FragmentAPIError("Seed must be 12 or 24 space-separated words.");
-    return this.base64Encode(usedSeed);
+    return usedSeed;
   }
 
   private getFragmentCookies(cookies?: string): string {
@@ -68,11 +64,11 @@ export default class FragmentAPIClient {
         "Fragment cookies must be in Header String format exported from Cookie-Editor extension: https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm"
       );
     }
-    return this.base64Encode(usedCookies);
+    return usedCookies;
   }
 
   ping() {
-    return this.get("/ping");
+    return this.get("/v2/ping");
   }
 
   getBalance(seed?: string, walletType = "v4r2") {
