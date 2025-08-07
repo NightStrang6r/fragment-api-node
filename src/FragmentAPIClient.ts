@@ -524,12 +524,29 @@ export default class FragmentAPIClient {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  createAuthKey(fragmentCookies: string, seed: string) {
+  async createAuthKey(fragmentCookies?: string, seed?: string) {
     const req: CreateAuthKeyRequest = {
-      fragment_cookies: fragmentCookies,
-      seed: seed
+      fragment_cookies: this.getFragmentCookies(fragmentCookies),
+      seed: this.getSeed(seed),
     };
-    return this.post("/v2/auth", req);
+
+    const maxRetries = 3;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const resp = await this.post("/v2/auth", req);
+        return resp;
+      } catch (err: any) {
+        const status = err?.response?.status;
+        const isRetryable = !status || (status >= 500 && status < 600);
+
+        if (!isRetryable || attempt === maxRetries) {
+          throw err;
+        }
+
+        await this.delay(500 * attempt);
+      }
+    }
   }
 
   createPremiumOrder(username: string, duration = 3, fragmentCookies: string, showSender = false) {
