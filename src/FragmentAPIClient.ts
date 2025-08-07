@@ -1,9 +1,5 @@
 import axios, { AxiosInstance } from "axios";
 import {
-  BuyPremiumRequest,
-  BuyPremiumWithoutKYCRequest,
-  BuyStarsRequest,
-  BuyStarsWithoutKYCRequest,
   CreatePremiumOrderRequest,
   CreatePremiumWithoutKYCOrderRequest,
   CreateStarsOrderRequest,
@@ -92,7 +88,7 @@ export default class FragmentAPIClient {
     if (!createResp.success) {
       const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "BAD_REQUEST"];
       if (retryableCreateErrors.includes(createResp.error_code)) {
-        for (let attempt = 1; attempt <= 5; attempt++) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
           await this.delay(1000 * attempt);
           const retryResp = await this.post("/v2/buyStars/create", {
             username: username,
@@ -128,7 +124,7 @@ export default class FragmentAPIClient {
       "TRANSFER_FAILED"
     ];
 
-    for (let attempt = 1; attempt <= 5; attempt++) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         payResp = await this.post("/v2/buyStars/pay", {
           order_uuid: orderId,
@@ -161,7 +157,7 @@ export default class FragmentAPIClient {
     }
 
     if (networkErrorDuringPay) {
-      const maxCheckRetries = 5;
+      const maxCheckRetries = 3;
       const checkDelayMs = 1000;
 
       for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
@@ -183,20 +179,16 @@ export default class FragmentAPIClient {
   }
 
 
-    async buyStarsWithoutKYC(username: string, amount = 3, authKey?: string, walletType = "v4r2", showSender = false) {
+  async buyStarsWithoutKYC(username: string, amount = 3, authKey?: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyStarsWithoutKYC/create", {
       username: username,
       amount: amount
     });
 
     if (!createResp.success) {
-      throw new FragmentAPIError(`Create order failed: ${createResp.message}`);
-    }
-
-    if (!createResp.success) {
       const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "BAD_REQUEST"];
       if (retryableCreateErrors.includes(createResp.error_code)) {
-        for (let attempt = 1; attempt <= 5; attempt++) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
           await this.delay(1000 * attempt);
           const retryResp = await this.post("/v2/buyStarsWithoutKYC/create", {
             username: username,
@@ -233,7 +225,7 @@ export default class FragmentAPIClient {
       "TRANSFER_TO_MIDDLE_FAILED"
     ];
 
-    for (let attempt = 1; attempt <= 5; attempt++) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         payResp = await this.post("/v2/buyStarsWithoutKYC/pay", {
           order_uuid: orderId,
@@ -266,7 +258,7 @@ export default class FragmentAPIClient {
     }
 
     if (networkErrorDuringPay) {
-      const maxCheckRetries = 5;
+      const maxCheckRetries = 3;
       const checkDelayMs = 1000;
 
       for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
@@ -298,7 +290,7 @@ export default class FragmentAPIClient {
     if (!createResp.success) {
       const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED"];
       if (retryableCreateErrors.includes(createResp.error_code)) {
-        for (let attempt = 1; attempt <= 5; attempt++) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
           await this.delay(1000 * attempt);
           const retryResp = await this.post("/v2/buyPremium/create", {
             username: username,
@@ -334,7 +326,7 @@ export default class FragmentAPIClient {
       "TRANSFER_FAILED"
     ];
 
-    for (let attempt = 1; attempt <= 5; attempt++) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         payResp = await this.post("/v2/buyPremium/pay", {
           order_uuid: orderId,
@@ -367,7 +359,7 @@ export default class FragmentAPIClient {
     }
 
     if (networkErrorDuringPay) {
-      const maxCheckRetries = 5;
+      const maxCheckRetries = 3;
       const checkDelayMs = 1000;
 
       for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
@@ -398,7 +390,7 @@ export default class FragmentAPIClient {
     if (!createResp.success) {
       const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED"];
       if (retryableCreateErrors.includes(createResp.error_code)) {
-        for (let attempt = 1; attempt <= 5; attempt++) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
           await this.delay(1000 * attempt);
           const retryResp = await this.post("/v2/buyPremiumWithoutKYC/create", {
             username: username,
@@ -435,7 +427,7 @@ export default class FragmentAPIClient {
       "TRANSFER_TO_MIDDLE_FAILED"
     ];
 
-    for (let attempt = 1; attempt <= 5; attempt++) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         payResp = await this.post("/v2/buyPremiumWithoutKYC/pay", {
           order_uuid: orderId,
@@ -468,7 +460,7 @@ export default class FragmentAPIClient {
     }
 
     if (networkErrorDuringPay) {
-      const maxCheckRetries = 5;
+      const maxCheckRetries = 3;
       const checkDelayMs = 1000;
 
       for (let checkAttempt = 1; checkAttempt <= maxCheckRetries; checkAttempt++) {
