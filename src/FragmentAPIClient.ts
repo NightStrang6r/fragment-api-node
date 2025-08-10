@@ -34,7 +34,7 @@ export default class FragmentAPIClient {
       const response = await this.http.get(path);
       return response.data;
     } catch (err: any) {
-      throw new FragmentAPIError(`${err.response?.status} | ${JSON.stringify(err.response?.data)}`);
+      throw new FragmentAPIError(err);
     }
   }
 
@@ -43,7 +43,7 @@ export default class FragmentAPIClient {
       const response = await this.http.post(path, data);
       return response.data;
     } catch (err: any) {
-      throw new FragmentAPIError(`${err.response?.status} | ${JSON.stringify(err.response?.data)}`);
+      throw new FragmentAPIError(err);
     }
   }
 
