@@ -78,7 +78,7 @@ export default class FragmentAPIClient {
     return this.get(`/v2/getUserInfo?username=${encodeURIComponent(username)}&auth_key=${encodeURIComponent(authKey)}`);
   }
 
-  async buyStars(username: string, amount = 3, authKey: string, walletType = "v4r2", showSender = false) {
+  async buyStars(username: string, amount: number, authKey: string, walletType = "v4r2", showSender = false) {
     const createResp = await this.post("/v2/buyStars/create", {
       username: username,
       amount,
@@ -122,7 +122,7 @@ export default class FragmentAPIClient {
 
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
-      "TRANSFER_FAILED"
+      //"TRANSFER_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -187,7 +187,7 @@ export default class FragmentAPIClient {
     throw lastError;
   } 
 
-  async buyStarsWithoutKYC(username: string, amount = 3, authKey: string, walletType = "v4r2", showSender = false) {
+  async buyStarsWithoutKYC(username: string, amount: number, authKey: string, walletType = "v4r2") {
     const createResp = await this.post("/v2/buyStarsWithoutKYC/create", {
       username: username,
       amount: amount,
@@ -229,8 +229,8 @@ export default class FragmentAPIClient {
 
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
-      "TRANSFER_FAILED",
-      "TRANSFER_TO_MIDDLE_FAILED"
+      //"TRANSFER_FAILED",
+      //"TRANSFER_TO_MIDDLE_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -340,7 +340,7 @@ export default class FragmentAPIClient {
 
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
-      "TRANSFER_FAILED"
+      //"TRANSFER_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -405,7 +405,7 @@ export default class FragmentAPIClient {
     throw lastError;
   } 
 
-  async buyTonWithoutKYC(username: string, amount = 1, authKey: string, walletType = "v4r2", showSender = false) {
+  async buyTonWithoutKYC(username: string, amount = 1, authKey: string, walletType = "v4r2") {
     const createResp = await this.post("/v2/buyTonWithoutKYC/create", {
       username: username,
       amount: amount,
@@ -447,8 +447,8 @@ export default class FragmentAPIClient {
 
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
-      "TRANSFER_FAILED",
-      "TRANSFER_TO_MIDDLE_FAILED"
+      //"TRANSFER_FAILED",
+      //"TRANSFER_TO_MIDDLE_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -558,7 +558,7 @@ export default class FragmentAPIClient {
 
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
-      "TRANSFER_FAILED"
+      //"TRANSFER_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -625,7 +625,7 @@ export default class FragmentAPIClient {
   }
 
 
-  async buyPremiumWithoutKYC(username: string, duration = 3, authKey: string, walletType = "v4r2", showSender = false) {
+  async buyPremiumWithoutKYC(username: string, duration = 3, authKey: string, walletType = "v4r2") {
     const createResp = await this.post("/v2/buyPremiumWithoutKYC/create", {
       username: username,
       duration: duration,
@@ -667,8 +667,8 @@ export default class FragmentAPIClient {
 
     const retryablePayErrors = [
       "BALANCE_CHECK_ERROR",
-      "TRANSFER_FAILED",
-      "TRANSFER_TO_MIDDLE_FAILED"
+      //"TRANSFER_FAILED",
+      //"TRANSFER_TO_MIDDLE_FAILED"
     ];
 
     for (let attempt = 1; attempt <= 3; attempt++) {
