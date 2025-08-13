@@ -147,7 +147,7 @@ export default class FragmentAPIClient {
         if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
           throw err;
         }
-        if (err.message?.startsWith("4")) {
+        if (err.message?.includes("4") || err.message?.includes("5")) {
           throw err;
         }
 
@@ -166,7 +166,7 @@ export default class FragmentAPIClient {
         try {
           const checkResp = await this.get(`/v2/buyStars/check?uuid=${orderId}`);
           
-          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
+          if ((checkResp.success && (checkResp.status == "success" || checkResp.status == "failed")) || ("error_code" in checkResp && checkResp.error_code !== "ORDER_ALREADY_PROCESSING")) {
             return checkResp;
           }
         } catch (checkErr: any) {
@@ -255,7 +255,7 @@ export default class FragmentAPIClient {
         if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
           throw err;
         }
-        if (err.message?.startsWith("4")) {
+        if (err.message?.includes("4") || err.message?.includes("5")) {
           throw err;
         }
 
@@ -274,7 +274,7 @@ export default class FragmentAPIClient {
         try {
           const checkResp = await this.get(`/v2/buyStarsWithoutKYC/check?uuid=${orderId}`);
           
-          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
+          if ((checkResp.success && (checkResp.status == "success" || checkResp.status == "failed")) || ("error_code" in checkResp && checkResp.error_code !== "ORDER_ALREADY_PROCESSING")) {
             return checkResp;
           }
         } catch (checkErr: any) {
@@ -365,7 +365,7 @@ export default class FragmentAPIClient {
         if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
           throw err;
         }
-        if (err.message?.startsWith("4")) {
+        if (err.message?.includes("4") || err.message?.includes("5")) {
           throw err;
         }
 
@@ -384,7 +384,7 @@ export default class FragmentAPIClient {
         try {
           const checkResp = await this.get(`/v2/buyTon/check?uuid=${orderId}`);
           
-          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
+          if ((checkResp.success && (checkResp.status == "success" || checkResp.status == "failed")) || ("error_code" in checkResp && checkResp.error_code !== "ORDER_ALREADY_PROCESSING")) {
             return checkResp;
           }
         } catch (checkErr: any) {
@@ -473,7 +473,7 @@ export default class FragmentAPIClient {
         if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
           throw err;
         }
-        if (err.message?.startsWith("4")) {
+        if (err.message?.includes("4") || err.message?.includes("5")) {
           throw err;
         }
 
@@ -492,7 +492,7 @@ export default class FragmentAPIClient {
         try {
           const checkResp = await this.get(`/v2/buyTonWithoutKYC/check?uuid=${orderId}`);
           
-          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
+          if ((checkResp.success && (checkResp.status == "success" || checkResp.status == "failed")) || ("error_code" in checkResp && checkResp.error_code !== "ORDER_ALREADY_PROCESSING")) {
             return checkResp;
           }
         } catch (checkErr: any) {
@@ -583,7 +583,7 @@ export default class FragmentAPIClient {
         if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
           throw err;
         }
-        if (err.message?.startsWith("4")) {
+        if (err.message?.includes("4") || err.message?.includes("5")) {
           throw err;
         }
 
@@ -602,7 +602,7 @@ export default class FragmentAPIClient {
         try {
           const checkResp = await this.get(`/v2/buyPremium/check?uuid=${orderId}`);
           
-          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
+          if ((checkResp.success && (checkResp.status == "success" || checkResp.status == "failed")) || ("error_code" in checkResp && checkResp.error_code !== "ORDER_ALREADY_PROCESSING")) {
             return checkResp;
           }
         } catch (checkErr: any) {
@@ -693,7 +693,7 @@ export default class FragmentAPIClient {
         if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
           throw err;
         }
-        if (err.message?.startsWith("4")) {
+        if (err.message?.includes("4") || err.message?.includes("5")) {
           throw err;
         }
 
@@ -712,7 +712,7 @@ export default class FragmentAPIClient {
         try {
           const checkResp = await this.get(`/v2/buyPremiumWithoutKYC/check?uuid=${orderId}`);
           
-          if (checkResp.success || checkResp.error_code !== "ORDER_ALREADY_PROCESSING") {
+          if ((checkResp.success && (checkResp.status == "success" || checkResp.status == "failed")) || ("error_code" in checkResp && checkResp.error_code !== "ORDER_ALREADY_PROCESSING")) {
             return checkResp;
           }
         } catch (checkErr: any) {
