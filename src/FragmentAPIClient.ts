@@ -78,12 +78,13 @@ export default class FragmentAPIClient {
     return this.get(`/v2/getUserInfo?username=${encodeURIComponent(username)}&auth_key=${encodeURIComponent(authKey)}`);
   }
 
-  async buyStars(username: string, amount: number, authKey: string, walletType = "v4r2", showSender = false) {
+  async buyStars(username: string, amount: number, authKey: string, walletType: string = "v4r2", showSender: boolean = false, custom_order_info: string | null = null) {
     const createResp = await this.post("/v2/buyStars/create", {
       username: username,
       amount,
       auth_key: authKey,
-      show_sender: showSender
+      show_sender: showSender,
+      custom_order_info: custom_order_info
     });
 
     if (!createResp.success) {
@@ -296,12 +297,13 @@ export default class FragmentAPIClient {
     throw lastError;
   }
 
-  async buyTon(username: string, amount = 1, authKey: string, walletType = "v4r2", showSender = false) {
+  async buyTon(username: string, amount: number = 1, authKey: string, walletType: string = "v4r2", showSender: boolean = false, custom_order_info: string | null = null) {
     const createResp = await this.post("/v2/buyTon/create", {
       username: username,
       amount,
       auth_key: authKey,
-      show_sender: showSender
+      show_sender: showSender,
+      custom_order_info: custom_order_info
     });
 
     if (!createResp.success) {
@@ -514,12 +516,13 @@ export default class FragmentAPIClient {
     throw lastError;
   }
 
-  async buyPremium(username: string, duration = 3, authKey: string, walletType = "v4r2", showSender = false) {
+  async buyPremium(username: string, duration: number = 3, authKey: string, walletType: string = "v4r2", showSender: boolean = false, custom_order_info: string | null = null) {
     const createResp = await this.post("/v2/buyPremium/create", {
       username: username,
       duration: duration,
       auth_key: authKey,
-      show_sender: showSender
+      show_sender: showSender,
+      custom_order_info: custom_order_info
     });
 
     if (!createResp.success) {
