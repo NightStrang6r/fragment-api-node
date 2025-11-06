@@ -1,9 +1,9 @@
 {
   "name": "fragment-api",
-  "version": "1.0.3",
+  "version": "1.0.2",
   "description": "❇️ NodeJS API client wrapper for Fragment, purchase of Telegram Stars & Premium 💙",
   "type": "module",
-  "main": "index.js",
+  "main": "test.js",
   "scripts": {
     "build": "tsc",
     "example": "node example.js"

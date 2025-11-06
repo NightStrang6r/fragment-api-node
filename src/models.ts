@@ -38,3 +38,89 @@ export interface GetOrdersRequest {
   limit?: number;
   offset?: number;
 }
+
+export interface CreateAuthKeyRequest {
+  fragment_cookies: string;
+  seed: string;
+}
+
+export interface CreatePremiumOrderRequest {
+  username: string;
+  duration?: number;
+  auth_key: string;
+  show_sender?: boolean;
+}
+
+export interface CreatePremiumWithoutKYCOrderRequest {
+  username: string;
+  duration?: number;
+  auth_key: string;
+}
+
+export interface CreateStarsOrderRequest {
+  username: string;
+  amount: number;
+  auth_key: string;
+  show_sender?: boolean;
+}
+
+export interface CreateStarsWithoutKYCOrderRequest {
+  username: string;
+  amount: number;
+  auth_key: string;
+}
+
+export interface PayPremiumOrderRequest {
+  order_uuid: string;
+  auth_key: string;
+  cost: number;
+  wallet_type?: string;
+}
+
+export interface PayPremiumWithoutKYCOrderRequest {
+  order_uuid: string;
+  auth_key: string;
+  cost: number;
+  wallet_type?: string;
+}
+
+export interface PayStarsOrderRequest {
+  order_uuid: string;
+  auth_key: string;
+  cost: number;
+  wallet_type?: string;
+}
+
+export interface PayStarsWithoutKYCOrderRequest {
+  order_uuid: string;
+  auth_key: string;
+  cost: number;
+  wallet_type?: string;
+}
+
+export interface CreateTonOrderRequest {
+  username: string;
+  amount: number;
+  auth_key: string;
+  show_sender?: boolean;
+}
+
+export interface CreateTonWithoutKYCOrderRequest {
+  username: string;
+  amount: number;
+  auth_key: string;
+}
+
+export interface PayTonOrderRequest {
+  order_uuid: string;
+  auth_key: string;
+  cost: number;
+  wallet_type?: string;
+}
+
+export interface PayTonWithoutKYCOrderRequest {
+  order_uuid: string;
+  auth_key: string;
+  cost: number;
+  wallet_type?: string;
+}

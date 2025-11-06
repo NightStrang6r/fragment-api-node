@@ -1,0 +1,1321 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Fragment API",
+        "description": "\n🧩 Fast and Secure API for Fragment (fragment.com): Purchase of Telegram Stars ⭐\n\n\n📌Requierements:\n\n✅ TON Wallet v4r2 OR v5r1 (W5) 🪙\n\n✅ Seed should be base64-encoded 🔐\n\n\n📌Requierements if you use your own Fragment account\n\n✅ Fragment account with linked TON wallet and Telegram account 🔗\n\n✅ KYC verification on Fragment 🆔\n\n✅ Export cookies from Fragment 🍪 (as Header String using Cookie Editor extension)\n\n\n‼️ Since 15.02.2025 default API fee is 2% of the transaction amount ‼️\n\n\n📂 GitHub: https://github.com/NightStrang6r/FragmentAPI\n\n💬 Questions? Contact developer: https://t.me/NightStrang6r\n\nMade with ❤️ by Lenvio Software\n",
+        "version": "2.0"
+    },
+    "paths": {
+        "/v2/auth": {
+            "post": {
+                "tags": ["API v2 - Create Auth Key"],
+                "summary": "Create Auth Key",
+                "description": "This endpoint allows to create an auth key for a user.",
+                "operationId": "create_auth_key_v2_auth_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAuthKeyRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Auth key created successfully",
+                        "content": { "application/json": { "schema": {}, "example": { "success": true, "message": "Auth key created", "auth_key": "5b158ae73ab9431ba20e0c7580be4d19" } } }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "missing_fragment_cookies": { "summary": "Missing fragment_cookies", "value": { "success": false, "message": "Missing fragment_cookies" } },
+                                    "missing_seed": { "summary": "Missing seed", "value": { "success": false, "message": "Missing seed" } }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "auth_key_error": { "summary": "Auth key error", "value": { "success": false, "message": "Failed to create auth key" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+                }
+            }
+        },
+        "/v2/getBalance": {
+            "get": {
+                "tags": ["API v2 - General Info"],
+                "summary": "Get Balance",
+                "description": "Returns the balance of a TON wallet.\nQuery params:\n- seed: base64-encoded mnemonic\n- wallet_type: v4r2 (default) or v5r1",
+                "operationId": "get_balance_v2_getBalance_get",
+                "parameters": [
+                    { "name": "seed", "in": "query", "required": true, "schema": { "type": "string", "title": "Seed" } },
+                    { "name": "wallet_type", "in": "query", "required": false, "schema": { "type": "string", "default": "v4r2", "title": "Wallet Type" } }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Balance retrieved successfully",
+                        "content": { "application/json": { "schema": { "type": "object", "title": "Response Get Balance V2 Getbalance Get" }, "example": { "success": true, "balance": 0.0 } } }
+                    },
+                    "400": { "description": "Bad Request - Invalid format", "content": { "application/json": { "example": { "success": false, "message": "Invalid format for seed" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+                }
+            }
+        },
+        "/v2/getUserInfo": {
+            "get": {
+                "tags": ["API v2 - General Info"],
+                "summary": "Get User Info",
+                "description": "Retrieves user data from Fragment by Telegram username.",
+                "operationId": "get_user_info_v2_getUserInfo_get",
+                "parameters": [
+                    { "name": "username", "in": "query", "required": true, "schema": { "type": "string", "title": "Username" } },
+                    { "name": "fragment_cookies", "in": "query", "required": true, "schema": { "type": "string", "title": "Fragment Cookies" } }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User data retrieved successfully",
+                        "content": { "application/json": { "schema": {}, "example": { "success": true, "found": true, "username": "Durov", "name": "Pavel Durov", "photo": "url" } } }
+                    },
+                    "400": { "description": "Bad Request - Invalid username format", "content": { "application/json": { "example": { "success": false, "message": "Invalid username format" } } } },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "found": false, "message": "User not found" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+                }
+            }
+        },
+        "/v2/getOrders": {
+            "get": {
+                "tags": ["API v2 - General Info"],
+                "summary": "Get Orders",
+                "description": "Returns a list of orders for a given seed phrase.",
+                "operationId": "get_orders_v2_getOrders_get",
+                "parameters": [
+                    { "name": "seed", "in": "query", "required": true, "schema": { "type": "string", "title": "Seed" } },
+                    { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 10, "title": "Limit" } },
+                    { "name": "offset", "in": "query", "required": false, "schema": { "type": "integer", "default": 0, "title": "Offset" } }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Orders retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": { "type": "object", "title": "Response Get Orders V2 Getorders Get" },
+                                "example": {
+                                    "success": true,
+                                    "orders": [
+                                        { "ref_id": "Ref#UxpRb8iSk", "username": "Durov", "amount": 100, "cost": 1.5, "txid": "49504445931b7d71a5d287227d5eadb6fe3b1b14da75821d658613647b913fe0", "created_at": "2025-03-26 21:58:58.400245" }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation error or invalid seed format",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for seed" } },
+                                    "limit_exceeded": { "summary": "Limit exceeded", "value": { "success": false, "message": "Limit cannot exceed 100" } }
+                                }
+                            }
+                        }
+                    },
+                    "422": { "description": "Validation error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } }
+                }
+            }
+        },
+        "/v2/buyPremium/create": {
+            "post": {
+                "tags": ["API v2 - Premium Orders"],
+                "summary": "Create Premium Order",
+                "description": "This endpoint allows to create an order for purchasing Telegram Premium for a specified duration (3, 6, or 12 months) for a given username.",
+                "operationId": "create_premium_order_v2_buyPremium_create_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatePremiumRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Order created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": { "success": true, "message": "Order created", "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19", "cost": 12.75, "duration": 12, "username": "Durov", "ref_id": "Ref#UxpRb8iSk" }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "invalid_duration": { "summary": "Invalid duration", "value": { "success": false, "message": "Invalid duration" } },
+                                    "user_already_has_premium": { "summary": "User already has premium", "value": { "success": false, "message": "User already has premium" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "order_error": { "summary": "Order error", "value": { "success": false, "message": "Failed to create order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/buyPremium/pay": {
+            "post": {
+                "tags": ["API v2 - Premium Orders"],
+                "summary": "Pay Premium Order",
+                "description": "This endpoint allows to pay for a Telegram Premium order.",
+                "operationId": "pay_premium_order_v2_buyPremium_pay_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PayPremiumRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Transfer started successfully",
+                        "content": { "application/json": { "schema": {}, "example": { "success": true, "message": "Transfer started", "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19", "check_at": 1712345678 } } }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "insufficient_balance": { "summary": "Insufficient balance", "value": { "success": false, "message": "Insufficient balance" } },
+                                    "invalid_duration": { "summary": "Invalid duration", "value": { "success": false, "message": "Invalid duration" } },
+                                    "user_already_has_premium": { "summary": "User already has premium", "value": { "success": false, "message": "User already has premium" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/buyPremiumWithoutKYC/create": {
+            "post": {
+                "tags": ["API v2 - Premium No-KYC Orders"],
+                "summary": "Create Premium Without Kyc Order",
+                "operationId": "create_premium_without_kyc_order_v2_buyPremiumWithoutKYC_create_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreatePremiumWithoutKYCRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Order created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": { "success": true, "message": "Order created", "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19", "cost": 12.75, "duration": 12, "username": "Durov", "ref_id": "Ref#UxpRb8iSk" }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "invalid_duration": { "summary": "Invalid duration", "value": { "success": false, "message": "Invalid duration" } },
+                                    "user_already_has_premium": { "summary": "User already has premium", "value": { "success": false, "message": "User already has premium" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/buyPremiumWithoutKYC/pay": {
+            "post": {
+                "tags": ["API v2 - Premium No-KYC Orders"],
+                "summary": "Pay Premium Without Kyc Order",
+                "description": "This endpoint allows to pay for a Telegram Premium order.",
+                "operationId": "pay_premium_without_kyc_order_v2_buyPremiumWithoutKYC_pay_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BuyPremiumWithoutKYCPayRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Transfer started successfully",
+                        "content": { "application/json": { "schema": {}, "example": { "success": true, "message": "Transfer started", "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19", "check_at": 1712345678 } } }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "insufficient_balance": { "summary": "Insufficient balance", "value": { "success": false, "message": "Insufficient balance" } },
+                                    "invalid_duration": { "summary": "Invalid duration", "value": { "success": false, "message": "Invalid duration" } },
+                                    "user_already_has_premium": { "summary": "User already has premium", "value": { "success": false, "message": "User already has premium" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/buyStars/create": {
+            "post": {
+                "tags": ["API v2 - Stars Orders"],
+                "summary": "Create Stars Order",
+                "description": "This endpoint allows to create an order for purchasing Telegram Stars for a specified amount (at least 50) for a given username.",
+                "operationId": "create_stars_order_v2_buyStars_create_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateStarsRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Order created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": { "success": true, "message": "Order created", "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19", "cost": 3.5, "amount": 50, "username": "Durov", "ref_id": "Ref#UxpRb8iSk" }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/buyStars/pay": {
+            "post": {
+                "tags": ["API v2 - Stars Orders"],
+                "summary": "Pay Stars Order",
+                "description": "This endpoint allows to pay for a Telegram Stars order.",
+                "operationId": "pay_stars_order_v2_buyStars_pay_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BuyStarsPayRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Transfer started successfully",
+                        "content": { "application/json": { "schema": {}, "example": { "success": true, "message": "Transfer started", "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19", "check_at": 1712345678 } } }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "insufficient_balance": { "summary": "Insufficient balance", "value": { "success": false, "message": "Insufficient balance" } },
+                                    "invalid_duration": { "summary": "Invalid duration", "value": { "success": false, "message": "Invalid duration" } },
+                                    "user_already_has_premium": { "summary": "User already has premium", "value": { "success": false, "message": "User already has premium" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/buyStarsWithoutKYC/create": {
+            "post": {
+                "tags": ["API v2 - Stars No-KYC Orders"],
+                "summary": "Create Stars Order",
+                "description": "This endpoint allows to create an order for purchasing Telegram Stars for a specified amount (at least 50) for a given username.",
+                "operationId": "create_stars_order_v2_buyStarsWithoutKYC_create_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateStarsWithoutKYCRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Order created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": { "success": true, "message": "Order created", "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19", "cost": 3.5, "amount": 50, "username": "Durov", "ref_id": "Ref#UxpRb8iSk" }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/buyStarsWithoutKYC/pay": {
+            "post": {
+                "tags": ["API v2 - Stars No-KYC Orders"],
+                "summary": "Pay Stars Without Kyc Order",
+                "description": "This endpoint allows to pay for a Telegram Stars order.",
+                "operationId": "pay_stars_without_kyc_order_v2_buyStarsWithoutKYC_pay_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BuyStarsWithoutKYCPayRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Transfer started successfully",
+                        "content": { "application/json": { "schema": {}, "example": { "success": true, "message": "Transfer started", "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19", "check_at": 1712345678 } } }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "insufficient_balance": { "summary": "Insufficient balance", "value": { "success": false, "message": "Insufficient balance" } },
+                                    "invalid_duration": { "summary": "Invalid duration", "value": { "success": false, "message": "Invalid duration" } },
+                                    "user_already_has_premium": { "summary": "User already has premium", "value": { "success": false, "message": "User already has premium" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v2/buyPremiumWithoutKYC/check": {
+            "get": {
+                "tags": ["API v2 - Order Status"],
+                "summary": "Check Order",
+                "description": "This endpoint allows to retrieve the status and details of an order by its UUID.",
+                "operationId": "check_order_v2_buyPremiumWithoutKYC_check_get",
+                "parameters": [{ "name": "uuid", "in": "query", "required": true, "schema": { "type": "string", "title": "Uuid" } }],
+                "responses": {
+                    "200": {
+                        "description": "Order retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "examples": {
+                                    "created": {
+                                        "summary": "Created",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "premium",
+                                            "duration": 12,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "created",
+                                            "check_at": 1753212212
+                                        }
+                                    },
+                                    "processing": {
+                                        "summary": "Processing",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "premium",
+                                            "duration": 12,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "processing",
+                                            "check_at": 1753212212
+                                        }
+                                    },
+                                    "success": {
+                                        "summary": "Success",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "premium",
+                                            "duration": 102,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "success",
+                                            "txid": "a1b2c3d4e5f6789012345678901234567890abcdef"
+                                        }
+                                    },
+                                    "failed": {
+                                        "summary": "Failed",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "premium",
+                                            "duration": 12,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "failed",
+                                            "error_message": "Payment declined by provider"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "Order not found", "content": { "application/json": { "example": { "success": false, "message": "Order not found" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+                }
+            }
+        },
+        "/v2/buyPremium/check": {
+            "get": {
+                "tags": ["API v2 - Order Status"],
+                "summary": "Check Order",
+                "description": "This endpoint allows to retrieve the status and details of an order by its UUID.",
+                "operationId": "check_order_v2_buyPremium_check_get",
+                "parameters": [{ "name": "uuid", "in": "query", "required": true, "schema": { "type": "string", "title": "Uuid" } }],
+                "responses": {
+                    "200": {
+                        "description": "Order retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "examples": {
+                                    "created": {
+                                        "summary": "Created",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "premium",
+                                            "duration": 12,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "created",
+                                            "check_at": 1753212212
+                                        }
+                                    },
+                                    "processing": {
+                                        "summary": "Processing",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "premium",
+                                            "duration": 12,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "processing",
+                                            "check_at": 1753212212
+                                        }
+                                    },
+                                    "success": {
+                                        "summary": "Success",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "premium",
+                                            "duration": 12,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "success",
+                                            "txid": "a1b2c3d4e5f6789012345678901234567890abcdef"
+                                        }
+                                    },
+                                    "failed": {
+                                        "summary": "Failed",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "premium",
+                                            "duration": 12,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "failed",
+                                            "error_message": "Payment declined by provider"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "Order not found", "content": { "application/json": { "example": { "success": false, "message": "Order not found" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+                }
+            }
+        },
+        "/v2/buyStarsWithoutKYC/check": {
+            "get": {
+                "tags": ["API v2 - Order Status"],
+                "summary": "Check Order",
+                "description": "This endpoint allows to retrieve the status and details of an order by its UUID.",
+                "operationId": "check_order_v2_buyStarsWithoutKYC_check_get",
+                "parameters": [{ "name": "uuid", "in": "query", "required": true, "schema": { "type": "string", "title": "Uuid" } }],
+                "responses": {
+                    "200": {
+                        "description": "Order retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "examples": {
+                                    "created": {
+                                        "summary": "Created",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "stars",
+                                            "amount": 100,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "created",
+                                            "check_at": 1753212212
+                                        }
+                                    },
+                                    "processing": {
+                                        "summary": "Processing",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "stars",
+                                            "amount": 100,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "processing",
+                                            "check_at": 1753212212
+                                        }
+                                    },
+                                    "success": {
+                                        "summary": "Success",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "stars",
+                                            "amount": 100,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "success",
+                                            "txid": "a1b2c3d4e5f6789012345678901234567890abcdef"
+                                        }
+                                    },
+                                    "failed": {
+                                        "summary": "Failed",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "stars",
+                                            "amount": 100,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "failed",
+                                            "error_message": "Payment declined by provider"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "Order not found", "content": { "application/json": { "example": { "success": false, "message": "Order not found" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+                }
+            }
+        },
+        "/v2/buyStars/check": {
+            "get": {
+                "tags": ["API v2 - Order Status"],
+                "summary": "Check Order",
+                "description": "This endpoint allows to retrieve the status and details of an order by its UUID.",
+                "operationId": "check_order_v2_buyStars_check_get",
+                "parameters": [{ "name": "uuid", "in": "query", "required": true, "schema": { "type": "string", "title": "Uuid" } }],
+                "responses": {
+                    "200": {
+                        "description": "Order retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "examples": {
+                                    "created": {
+                                        "summary": "Created",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "stars",
+                                            "amount": 100,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "created",
+                                            "check_at": 1753212212
+                                        }
+                                    },
+                                    "processing": {
+                                        "summary": "Processing",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "stars",
+                                            "amount": 100,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "processing",
+                                            "check_at": 1753212212
+                                        }
+                                    },
+                                    "success": {
+                                        "summary": "Success",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "stars",
+                                            "amount": 100,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "success",
+                                            "txid": "a1b2c3d4e5f6789012345678901234567890abcdef"
+                                        }
+                                    },
+                                    "failed": {
+                                        "summary": "Failed",
+                                        "value": {
+                                            "success": true,
+                                            "order_id": "5b158ae7-3ab9-431b-a20e-0c7580be4d19",
+                                            "ref_id": "Ref#UxpRb8iSk",
+                                            "username": "Durov",
+                                            "product": "stars",
+                                            "amount": 100,
+                                            "cost": 1.5,
+                                            "created_at": "2025-03-26 21:58:58.400245",
+                                            "status": "failed",
+                                            "error_message": "Payment declined by provider"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "Order not found", "content": { "application/json": { "example": { "success": false, "message": "Order not found" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+                }
+            }
+        },
+        "/ping": {
+            "get": {
+                "tags": ["API v1"],
+                "summary": "Ping",
+                "description": "Checks the server status.",
+                "operationId": "ping_ping_get",
+                "responses": { "200": { "description": "Successful Response", "content": { "application/json": { "schema": {} } } } }
+            }
+        },
+        "/getBalance": {
+            "post": {
+                "tags": ["API v1"],
+                "summary": "Get Balance",
+                "description": "Returns the balance of a TON wallet",
+                "operationId": "get_balance_getBalance_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GetBalanceRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Balance retrieved successfully",
+                        "content": { "application/json": { "schema": { "type": "object", "title": "Response Get Balance Getbalance Post" }, "example": { "success": true, "balance": 0.0 } } }
+                    },
+                    "400": { "description": "Bad Request - Invalid format", "content": { "application/json": { "example": { "success": false, "message": "Invalid format for seed" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+                }
+            }
+        },
+        "/getUserInfo": {
+            "post": {
+                "tags": ["API v1"],
+                "summary": "Get User Info",
+                "description": "Retrieves user data from Fragment by Telegram username.",
+                "operationId": "get_user_info_getUserInfo_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GetUserInfoRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "User data retrieved successfully",
+                        "content": { "application/json": { "schema": {}, "example": { "success": true, "found": true, "username": "Durov", "name": "Pavel Durov", "photo": "url" } } }
+                    },
+                    "400": { "description": "Bad Request - Invalid username format", "content": { "application/json": { "example": { "success": false, "message": "Invalid username format" } } } },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "found": false, "message": "User not found" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+                }
+            }
+        },
+        "/buyStars": {
+            "post": {
+                "tags": ["API v1"],
+                "summary": "Buy Stars",
+                "description": "Handles the purchase of stars for a Telegram user.",
+                "operationId": "buy_stars_buyStars_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BuyStarsRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Purchase completed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": {
+                                    "success": true,
+                                    "message": "Purchase completed successfully",
+                                    "amount": 100,
+                                    "username": "Durov",
+                                    "ref_id": "Ref#UxpRb8iSk",
+                                    "cost": 12.75,
+                                    "transaction_hash": "49504445931b7d71a5d287227d5eadb6fe3b1b14da75821d658613647b913fe0"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "insufficient_balance": { "summary": "Insufficient balance", "value": { "success": false, "message": "Insufficient balance" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/buyPremium": {
+            "post": {
+                "tags": ["API v1"],
+                "summary": "Buy Premium",
+                "description": "This endpoint allows to buy Telegram Premium for a specified duration (3, 6, or 12 months) for a given username.",
+                "operationId": "buy_premium_buyPremium_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BuyPremiumRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Purchase completed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": {
+                                    "success": true,
+                                    "message": "Purchase completed successfully",
+                                    "duration": 12,
+                                    "username": "Durov",
+                                    "ref_id": "Ref#UxpRb8iSk",
+                                    "cost": 12.75,
+                                    "transaction_hash": "49504445931b7d71a5d287227d5eadb6fe3b1b14da75821d658613647b913fe0"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "insufficient_balance": { "summary": "Insufficient balance", "value": { "success": false, "message": "Insufficient balance" } },
+                                    "invalid_duration": { "summary": "Invalid duration", "value": { "success": false, "message": "Invalid duration" } },
+                                    "user_already_has_premium": { "summary": "User already has premium", "value": { "success": false, "message": "User already has premium" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/buyStarsWithoutKYC": {
+            "post": {
+                "tags": ["API v1"],
+                "summary": "Buy Stars Without Kyc",
+                "description": "Handles the purchase of stars for a Telegram user.",
+                "operationId": "buy_stars_without_kyc_buyStarsWithoutKYC_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BuyStarsWithoutKYCRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Purchase completed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": {
+                                    "success": true,
+                                    "message": "Purchase completed successfully",
+                                    "amount": 100,
+                                    "username": "Durov",
+                                    "ref_id": "Ref#UxpRb8iSk",
+                                    "cost": 12.75,
+                                    "transaction_hash": "49504445931b7d71a5d287227d5eadb6fe3b1b14da75821d658613647b913fe0"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "insufficient_balance": { "summary": "Insufficient balance", "value": { "success": false, "message": "Insufficient balance" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/buyPremiumWithoutKYC": {
+            "post": {
+                "tags": ["API v1"],
+                "summary": "Buy Premium Without Kyc",
+                "description": "This endpoint allows to buy Telegram Premium for a specified duration (3, 6, or 12 months) for a given username.",
+                "operationId": "buy_premium_without_kyc_buyPremiumWithoutKYC_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BuyPremiumWithoutKYCRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Purchase completed successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": {
+                                    "success": true,
+                                    "message": "Purchase completed successfully",
+                                    "duration": 12,
+                                    "username": "Durov",
+                                    "ref_id": "Ref#UxpRb8iSk",
+                                    "cost": 12.75,
+                                    "transaction_hash": "49504445931b7d71a5d287227d5eadb6fe3b1b14da75821d658613647b913fe0"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation or insufficient balance",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for fragment_cookies or seed" } },
+                                    "invalid_username": { "summary": "Invalid username", "value": { "success": false, "message": "Invalid username format" } },
+                                    "insufficient_balance": { "summary": "Insufficient balance", "value": { "success": false, "message": "Insufficient balance" } },
+                                    "invalid_duration": { "summary": "Invalid duration", "value": { "success": false, "message": "Invalid duration" } },
+                                    "user_already_has_premium": { "summary": "User already has premium", "value": { "success": false, "message": "User already has premium" } }
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "User not found", "content": { "application/json": { "example": { "success": false, "message": "User not found" } } } },
+                    "422": { "description": "Validation Error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "search_error": { "summary": "Search error", "value": { "success": false, "message": "Error while searching for recipient" } },
+                                    "balance_error": { "summary": "Balance check error", "value": { "success": false, "message": "Error while checking balance" } },
+                                    "order_error": { "summary": "Order processing error", "value": { "success": false, "message": "Error while processing order" } },
+                                    "unknown_error": { "summary": "Unknown error", "value": { "success": false, "message": "Internal server error" } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/getOrders": {
+            "post": {
+                "tags": ["API v1"],
+                "summary": "Get Orders",
+                "description": "Returns a list of orders for a given seed phrase.",
+                "operationId": "get_orders_getOrders_post",
+                "requestBody": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GetOrdersRequest" } } }, "required": true },
+                "responses": {
+                    "200": {
+                        "description": "Orders retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": { "type": "object", "title": "Response Get Orders Getorders Post" },
+                                "example": {
+                                    "success": true,
+                                    "orders": [
+                                        { "ref_id": "Ref#UxpRb8iSk", "username": "Durov", "amount": 100, "cost": 1.5, "txid": "49504445931b7d71a5d287227d5eadb6fe3b1b14da75821d658613647b913fe0", "created_at": "2025-03-26 21:58:58.400245" }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request - Validation error or invalid seed format",
+                        "content": {
+                            "application/json": {
+                                "examples": {
+                                    "invalid_format": { "summary": "Invalid format", "value": { "success": false, "message": "Invalid format for seed" } },
+                                    "limit_exceeded": { "summary": "Limit exceeded", "value": { "success": false, "message": "Limit cannot exceed 100" } }
+                                }
+                            }
+                        }
+                    },
+                    "422": { "description": "Validation error", "content": { "application/json": { "example": { "success": false, "message": "Validation error" } } } },
+                    "500": { "description": "Internal Server Error", "content": { "application/json": { "example": { "success": false, "message": "Internal server error" } } } }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "BuyPremiumRequest": {
+                "properties": {
+                    "username": { "type": "string", "pattern": "(?:^https?://t\\.me/|^@|^)([a-zA-Z0-9_]{5,32})(?:/)?$", "title": "Username", "description": "Telegram username, either as a link, @username, or plain username" },
+                    "duration": { "type": "integer", "title": "Duration", "description": "Integer: 3, 6, or 12 months", "default": 3 },
+                    "fragment_cookies": { "type": "string", "title": "Fragment Cookies", "description": "Base64-encoded Fragment cookies for authentication" },
+                    "seed": { "type": "string", "title": "Seed", "description": "Base64-encoded TON seed for authentication" },
+                    "show_sender": { "type": "boolean", "title": "Show Sender", "description": "Show sender in Telegram message", "default": false }
+                },
+                "type": "object",
+                "required": ["username", "fragment_cookies", "seed"],
+                "title": "BuyPremiumRequest"
+            },
+            "BuyPremiumWithoutKYCPayRequest": {
+                "properties": {
+                    "order_uuid": { "type": "string", "title": "Order Uuid", "description": "Uuid of the order to pay" },
+                    "auth_key": { "type": "string", "title": "Auth Key", "description": "Auth key" },
+                    "cost": { "type": "number", "title": "Cost", "description": "Cost of the premium order" },
+                    "wallet_type": { "type": "string", "title": "Wallet Type", "description": "Wallet type: v4r2 or v5r1 (default: v4r2)", "default": "v4r2" }
+                },
+                "type": "object",
+                "required": ["order_uuid", "auth_key", "cost"],
+                "title": "BuyPremiumWithoutKYCPayRequest"
+            },
+            "BuyPremiumWithoutKYCRequest": {
+                "properties": {
+                    "username": { "type": "string", "pattern": "(?:^https?://t\\.me/|^@|^)([a-zA-Z0-9_]{5,32})(?:/)?$", "title": "Username", "description": "Telegram username, either as a link, @username, or plain username" },
+                    "duration": { "type": "integer", "title": "Duration", "description": "Integer: 3, 6, or 12 months", "default": 3 },
+                    "seed": { "type": "string", "title": "Seed", "description": "Base64-encoded TON seed for authentication" }
+                },
+                "type": "object",
+                "required": ["username", "seed"],
+                "title": "BuyPremiumWithoutKYCRequest"
+            },
+            "BuyStarsPayRequest": {
+                "properties": {
+                    "order_uuid": { "type": "string", "title": "Order Uuid", "description": "Uuid of the order to pay" },
+                    "auth_key": { "type": "string", "title": "Auth Key", "description": "Auth key" },
+                    "cost": { "type": "number", "title": "Cost", "description": "Cost of the stars order" },
+                    "wallet_type": { "type": "string", "title": "Wallet Type", "description": "Wallet type: v4r2 or v5r1 (default: v4r2)", "default": "v4r2" }
+                },
+                "type": "object",
+                "required": ["order_uuid", "auth_key", "cost"],
+                "title": "BuyStarsPayRequest"
+            },
+            "BuyStarsRequest": {
+                "properties": {
+                    "username": { "type": "string", "pattern": "(?:^https?://t\\.me/|^@|^)([a-zA-Z0-9_]{5,32})(?:/)?$", "title": "Username", "description": "Telegram username, either as a link, @username, or plain username" },
+                    "amount": { "type": "integer", "minimum": 50.0, "title": "Amount", "description": "Number of stars to buy (minimum 50)" },
+                    "fragment_cookies": { "type": "string", "title": "Fragment Cookies", "description": "Base64-encoded Fragment cookies for authentication" },
+                    "seed": { "type": "string", "title": "Seed", "description": "Base64-encoded TON seed for authentication" },
+                    "show_sender": { "type": "boolean", "title": "Show Sender", "description": "Show sender in Telegram message", "default": false }
+                },
+                "type": "object",
+                "required": ["username", "amount", "fragment_cookies", "seed"],
+                "title": "BuyStarsRequest"
+            },
+            "BuyStarsWithoutKYCPayRequest": {
+                "properties": {
+                    "order_uuid": { "type": "string", "title": "Order Uuid", "description": "Uuid of the order to pay" },
+                    "auth_key": { "type": "string", "title": "Auth Key", "description": "Auth key" },
+                    "cost": { "type": "number", "title": "Cost", "description": "Cost of the stars order" },
+                    "wallet_type": { "type": "string", "title": "Wallet Type", "description": "Wallet type: v4r2 or v5r1 (default: v4r2)", "default": "v4r2" }
+                },
+                "type": "object",
+                "required": ["order_uuid", "auth_key", "cost"],
+                "title": "BuyStarsWithoutKYCPayRequest"
+            },
+            "BuyStarsWithoutKYCRequest": {
+                "properties": {
+                    "username": { "type": "string", "pattern": "(?:^https?://t\\.me/|^@|^)([a-zA-Z0-9_]{5,32})(?:/)?$", "title": "Username", "description": "Telegram username, either as a link, @username, or plain username" },
+                    "amount": { "type": "integer", "minimum": 50.0, "title": "Amount", "description": "Number of stars to buy (minimum 50)" },
+                    "seed": { "type": "string", "title": "Seed", "description": "Base64-encoded TON seed for authentication" }
+                },
+                "type": "object",
+                "required": ["username", "amount", "seed"],
+                "title": "BuyStarsWithoutKYCRequest"
+            },
+            "CreateAuthKeyRequest": {
+                "properties": {
+                    "fragment_cookies": { "type": "string", "title": "Fragment Cookies", "description": "Fragment cookies for authentication" },
+                    "seed": { "type": "string", "title": "Seed", "description": "TON seed for authentication" }
+                },
+                "type": "object",
+                "required": ["fragment_cookies", "seed"],
+                "title": "CreateAuthKeyRequest"
+            },
+            "CreatePremiumRequest": {
+                "properties": {
+                    "username": { "type": "string", "pattern": "(?:^https?://t\\.me/|^@|^)([a-zA-Z0-9_]{5,32})(?:/)?$", "title": "Username" },
+                    "duration": { "type": "integer", "title": "Duration", "description": "Integer: 3, 6, or 12 months", "default": 3 },
+                    "auth_key": { "type": "string", "title": "Auth Key", "description": "Auth key" },
+                    "show_sender": { "type": "boolean", "title": "Show Sender", "description": "Show sender in Telegram message", "default": false }
+                },
+                "type": "object",
+                "required": ["username", "auth_key"],
+                "title": "CreatePremiumRequest"
+            },
+            "CreatePremiumWithoutKYCRequest": {
+                "properties": {
+                    "username": { "type": "string", "pattern": "(?:^https?://t\\.me/|^@|^)([a-zA-Z0-9_]{5,32})(?:/)?$", "title": "Username" },
+                    "duration": { "type": "integer", "title": "Duration", "description": "Integer: 3, 6, or 12 months", "default": 3 }
+                },
+                "type": "object",
+                "required": ["username"],
+                "title": "CreatePremiumWithoutKYCRequest"
+            },
+            "CreateStarsRequest": {
+                "properties": {
+                    "username": { "type": "string", "pattern": "(?:^https?://t\\.me/|^@|^)([a-zA-Z0-9_]{5,32})(?:/)?$", "title": "Username" },
+                    "amount": { "type": "integer", "minimum": 50.0, "title": "Amount", "description": "Number of stars to buy (minimum 50)" },
+                    "auth_key": { "type": "string", "title": "Auth Key", "description": "Auth key" },
+                    "show_sender": { "type": "boolean", "title": "Show Sender", "description": "Show sender in Telegram message", "default": true }
+                },
+                "type": "object",
+                "required": ["username", "amount", "auth_key"],
+                "title": "CreateStarsRequest"
+            },
+            "CreateStarsWithoutKYCRequest": {
+                "properties": {
+                    "username": { "type": "string", "pattern": "(?:^https?://t\\.me/|^@|^)([a-zA-Z0-9_]{5,32})(?:/)?$", "title": "Username" },
+                    "amount": { "type": "integer", "minimum": 50.0, "title": "Amount", "description": "Number of stars to buy (minimum 50)" }
+                },
+                "type": "object",
+                "required": ["username", "amount"],
+                "title": "CreateStarsWithoutKYCRequest"
+            },
+            "GetBalanceRequest": { "properties": { "seed": { "type": "string", "title": "Seed", "description": "Seed phrase for TON wallet" } }, "type": "object", "required": ["seed"], "title": "GetBalanceRequest" },
+            "GetOrdersRequest": {
+                "properties": {
+                    "seed": { "type": "string", "title": "Seed", "description": "Seed phrase for TON wallet" },
+                    "limit": { "type": "integer", "title": "Limit", "description": "Limit for the number of orders to retrieve. Default is 10, maximum is 100", "default": 10 },
+                    "offset": { "type": "integer", "title": "Offset", "description": "Offset for pagination. Default is 0", "default": 0 }
+                },
+                "type": "object",
+                "required": ["seed"],
+                "title": "GetOrdersRequest"
+            },
+            "GetUserInfoRequest": {
+                "properties": {
+                    "username": { "type": "string", "pattern": "(?:^https?://t\\.me/|^@|^)([a-zA-Z0-9_]{5,32})(?:/)?$", "title": "Username", "description": "Telegram username, either as a link, @username, or plain username" },
+                    "fragment_cookies": { "type": "string", "title": "Fragment Cookies", "description": "Base64-encoded Fragment cookies for authentication" }
+                },
+                "type": "object",
+                "required": ["username"],
+                "title": "GetUserInfoRequest"
+            },
+            "HTTPValidationError": { "properties": { "detail": { "items": { "$ref": "#/components/schemas/ValidationError" }, "type": "array", "title": "Detail" } }, "type": "object", "title": "HTTPValidationError" },
+            "PayPremiumRequest": {
+                "properties": {
+                    "order_uuid": { "type": "string", "title": "Order Uuid", "description": "Uuid of the order to pay" },
+                    "auth_key": { "type": "string", "title": "Auth Key", "description": "Auth key" },
+                    "cost": { "type": "number", "title": "Cost", "description": "Cost of the premium order" },
+                    "wallet_type": { "type": "string", "title": "Wallet Type", "description": "Wallet type: v4r2 or v5r1 (default: v4r2)", "default": "v4r2" }
+                },
+                "type": "object",
+                "required": ["order_uuid", "auth_key", "cost"],
+                "title": "PayPremiumRequest"
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": { "items": { "anyOf": [{ "type": "string" }, { "type": "integer" }] }, "type": "array", "title": "Location" },
+                    "msg": { "type": "string", "title": "Message" },
+                    "type": { "type": "string", "title": "Error Type" }
+                },
+                "type": "object",
+                "required": ["loc", "msg", "type"],
+                "title": "ValidationError"
+            }
+        }
+    },
+    "tags": [
+        { "name": "API v2 - Create Auth Key", "description": "Create a new auth key" },
+        { "name": "API v2 - General Info", "description": "General information endpoints (balance, user info, orders list)" },
+        { "name": "API v2 - Stars Orders", "description": "Telegram Stars orders (create → pay → check)" },
+        { "name": "API v2 - Stars No-KYC Orders", "description": "Telegram Stars orders without KYC (create → pay → check)" },
+        { "name": "API v2 - Premium Orders", "description": "Premium subscription orders (create → pay → check)" },
+        { "name": "API v2 - Premium No-KYC Orders", "description": "Premium subscription orders without KYC (create → pay → check)" },
+        { "name": "API v2 - Order Status", "description": "Check order status for all order types" },
+        { "name": "API v1", "description": "Legacy API endpoints (v1)" }
+    ]
+}
