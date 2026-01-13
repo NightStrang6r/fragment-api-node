@@ -1,6 +1,6 @@
 import FragmentAPIError from "../../FragmentAPIError.js";
 
-export async function buyStarsWithoutKYC(this: any, username: string, amount: number, authKey?: string, walletType = "v4r2") {
+export async function buyStarsWithoutKYC(this: any, username: string, amount: number, authKey?: string) {
   const createResp = await this.post("/v2/buyStarsWithoutKYC/create", {
     username: username,
     amount: amount,
@@ -52,7 +52,7 @@ export async function buyStarsWithoutKYC(this: any, username: string, amount: nu
         order_uuid: orderId,
         auth_key: this.getAuthKey(authKey),
         cost,
-        wallet_type: walletType,
+        wallet_type: this.walletVersion,
       });
 
       if (payResp.success) {

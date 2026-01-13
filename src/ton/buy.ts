@@ -1,6 +1,6 @@
 import FragmentAPIError from "../FragmentAPIError.js";
 
-export async function buyTon(this: any, username: string, amount: number = 1, authKey?: string, walletType: string = "v4r2", showSender: boolean = false, custom_order_info: string | null = null) {
+export async function buyTon(this: any, username: string, amount: number = 1, authKey?: string, showSender: boolean = false, custom_order_info: string | null = null) {
   const createResp = await this.post("/v2/buyTon/create", {
     username: username,
     amount,
@@ -38,6 +38,11 @@ export async function buyTon(this: any, username: string, amount: number = 1, au
 
   const orderId = createResp.order_id;
   const cost = createResp.cost;
+  const recipient_id = createResp.recipient_id;
+    
+  if (this.bannedRecipientIDs.includes(recipient_id)) {
+    throw new FragmentAPIError(`Recipient ID ${recipient_id} (${username}) is banned.`);
+  }
 
   let lastError: any = null;
   let payResp: any = null;
@@ -54,7 +59,7 @@ export async function buyTon(this: any, username: string, amount: number = 1, au
         order_uuid: orderId,
         auth_key: this.getAuthKey(authKey),
         cost,
-        wallet_type: walletType,
+        wallet_type: this.walletVersion,
       });
 
       if (payResp.success) {

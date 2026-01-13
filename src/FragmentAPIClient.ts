@@ -45,9 +45,12 @@ import { getPremiumWithoutKYCOrderStatus } from "./premium/withoutKYC/check.js";
 export default class FragmentAPIClient {
     private baseUrl: string;
     private authKey?: string;
+    private walletVersion: string;
     private defaultSeed?: string;
     private defaultFragmentCookies?: string;
     private http: AxiosInstance;
+    
+    public bannedRecipientIDs: Array<string> = [];
 
     // Method bindings (delegated to feature modules)
     public ping = ping;
@@ -86,9 +89,10 @@ export default class FragmentAPIClient {
     public payPremiumWithoutKYCOrder = payPremiumWithoutKYCOrder;
     public getPremiumWithoutKYCOrderStatus = getPremiumWithoutKYCOrderStatus;
 
-    constructor(options: { baseUrl?: string; seed?: string; fragmentCookies?: string, authKey?: string } = {}) {
+    constructor(options: { baseUrl?: string; walletVersion?: string; seed?: string; fragmentCookies?: string, authKey?: string } = {}) {
         const { 
             baseUrl = "https://api.fragment-api.net",
+            walletVersion = "v5r1",
             seed, 
             fragmentCookies,
             authKey
@@ -96,11 +100,12 @@ export default class FragmentAPIClient {
 
         this.baseUrl = baseUrl.replace(/\/$/, "");
         this.authKey = authKey;
+        this.walletVersion = walletVersion;
         this.defaultSeed = seed;
         this.defaultFragmentCookies = fragmentCookies;
         this.http = axios.create({ 
-        baseURL: this.baseUrl,
-        validateStatus: status => true, // Handle HTTP codes manually
+            baseURL: this.baseUrl,
+            validateStatus: status => true, // Handle HTTP codes manually
         });
     }
 
