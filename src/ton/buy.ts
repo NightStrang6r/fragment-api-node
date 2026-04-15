@@ -87,15 +87,28 @@ export async function buyTon(this: any, username: string, amount: number = 1, au
 
   if (networkErrorDuringPay) {
     const maxCheckDurationMs = 2 * 60 * 1000;
+    const ambiguousThresholdMs = 60 * 1000; // 1 min stuck in "processing" → mark ambiguous
     const checkIntervalMs = 15 * 1000;
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxCheckDurationMs) {
       try {
         const checkResp = await this.get(`/v2/buyTon/check?uuid=${orderId}`);
-        
+
         if ((checkResp.success && (checkResp.status == "success" || checkResp.status == "failed")) || ("error_code" in checkResp && checkResp.error_code !== "ORDER_ALREADY_PROCESSING")) {
           return checkResp;
+        }
+
+        // Order stuck in "processing" — server intentionally kept it there (ambiguous state).
+        // Return TRANSFER_AMBIGUOUS so caller does NOT retry (retry would cause double-spend).
+        if (Date.now() - startTime > ambiguousThresholdMs) {
+          return {
+            success: false,
+            message: "Transfer state unclear - order stuck in processing, manual verification required",
+            error_code: "TRANSFER_AMBIGUOUS",
+            requires_manual_check: true,
+            order_id: orderId,
+          };
         }
       } catch (checkErr: any) {
         if (checkErr?.error_code !== "ORDER_ALREADY_PROCESSING") {

@@ -86,16 +86,30 @@ export async function buyStars(this: any, username: string, amount: number, auth
   }
 
   if (networkErrorDuringPay) {
-    const maxCheckDurationMs = 2 * 60 * 1000;
+    const maxCheckDurationMs = 2 * 60 * 60 * 1000; // 2 hours — hard limit
+    const ambiguousThresholdMs = 60 * 1000;        // 1 min stuck in "processing" → mark ambiguous
     const checkIntervalMs = 15 * 1000;
     const startTime = Date.now();
 
     while (Date.now() - startTime < maxCheckDurationMs) {
       try {
         const checkResp = await this.get(`/v2/buyStars/check?uuid=${orderId}`);
-        
+
         if ((checkResp.success && (checkResp.status == "success" || checkResp.status == "failed")) || ("error_code" in checkResp && checkResp.error_code !== "ORDER_ALREADY_PROCESSING")) {
           return checkResp;
+        }
+
+        // Order stuck in "processing" too long — likely our server caught an ambiguous error
+        // and intentionally left order in processing. Return TRANSFER_AMBIGUOUS to caller so it
+        // does NOT retry (retry would cause double-spend).
+        if (Date.now() - startTime > ambiguousThresholdMs) {
+          return {
+            success: false,
+            message: "Transfer state unclear - order stuck in processing, manual verification required",
+            error_code: "TRANSFER_AMBIGUOUS",
+            requires_manual_check: true,
+            order_id: orderId,
+          };
         }
       } catch (checkErr: any) {
         if (checkErr?.error_code !== "ORDER_ALREADY_PROCESSING") {
