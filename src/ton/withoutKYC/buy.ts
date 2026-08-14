@@ -1,22 +1,25 @@
 import FragmentAPIError from "../../FragmentAPIError.js";
+import { assertPaymentMethod, DEFAULT_PAYMENT_METHOD } from "../../utils/paymentMethod.js";
 
-export async function buyTonWithoutKYC(this: any, username: string, amount = 1, authKey?: string) {
-  const createResp = await this.post("/v2/buyTonWithoutKYC/create", {
+// /v2/buyTonWithoutKYC/create does accept payment_method: the no-KYC TON gift is
+// settled by the user sending USDT to the middle wallet, which then pays Fragment.
+export async function buyTonWithoutKYC(this: any, username: string, amount = 1, authKey?: string, custom_order_info: string | null = null, payment_method: string = DEFAULT_PAYMENT_METHOD) {
+  const createReq = {
     username: username,
     amount: amount,
-    auth_key: this.getAuthKey(authKey)
-  });
+    auth_key: this.getAuthKey(authKey),
+    custom_order_info: custom_order_info,
+    payment_method: assertPaymentMethod(payment_method)
+  };
+
+  const createResp = await this.post("/v2/buyTonWithoutKYC/create", createReq);
 
   if (!createResp.success) {
     const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "BAD_REQUEST"];
     if (retryableCreateErrors.includes(createResp.error_code)) {
       for (let attempt = 1; attempt <= 3; attempt++) {
         await this.delay(1000 * attempt);
-        const retryResp = await this.post("/v2/buyTonWithoutKYC/create", {
-          username: username,
-          amount: amount,
-          auth_key: this.getAuthKey(authKey)
-        });
+        const retryResp = await this.post("/v2/buyTonWithoutKYC/create", createReq);
         if (retryResp.success) {
           Object.assign(createResp, retryResp);
           break;

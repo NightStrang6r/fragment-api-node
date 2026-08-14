@@ -20,6 +20,10 @@
 
 - 💸 **Purchase Telegram Stars & Premium**
 
+- 💵 Pay in **TON** or **USDT** (jettons on TON)
+
+- ♻️ **Idempotent** order creation — safe retries, no double-paying
+
 - ✅ Works **with** or **without** KYC
 
 - 🔂 Bypass Fragment **purchase limits**
@@ -71,7 +75,8 @@ const walletType = "v5r1";
 // https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm
 const fragmentCookies = "your_fragment_cookies";
 
-const fragment = new FragmentAPIClient();
+// walletVersion is used as the wallet_type for every pay call
+const fragment = new FragmentAPIClient({ walletVersion: walletType });
 
 async function main() {
   try {
@@ -79,13 +84,13 @@ async function main() {
     const ping = await fragment.ping();
     console.log("API ping:", ping);
 
-    // Create auth key
-    const authKeyResp = await fragment.createAuthKey(fragmentCookies, seed);
+    // Create auth key (stored on the client, so authKey can be omitted below)
+    const authKeyResp = await fragment.auth(fragmentCookies, seed);
     console.log("Auth key response:", authKeyResp);
     const authKey = authKeyResp.auth_key;
 
-    // Get balance (now uses v2 API with wallet type support)
-    const balance = await fragment.getBalance(authKey, walletType);
+    // Get balance
+    const balance = await fragment.getBalance(authKey);
     console.log("Balance:", balance);
 
     // Get user info
@@ -93,28 +98,46 @@ async function main() {
     console.log("User info:", userInfo);
 
     // Buy stars without KYC
-    const starsNoKYC = await fragment.buyStarsWithoutKYC("NightStrang6r", 100, authKey, "v4r2");
+    const starsNoKYC = await fragment.buyStarsWithoutKYC("NightStrang6r", 100, authKey);
     console.log("Buy stars without KYC response:", starsNoKYC);
 
-    // Buy stars
-    const stars = await fragment.buyStars("NightStrang6r", 100, authKey, walletType, false);
+    // Buy stars, paying in TON
+    const stars = await fragment.buyStars("NightStrang6r", 100, authKey, false);
     console.log("Buy stars response:", stars);
 
+    // Buy stars, paying in USDT (jettons on TON), with your own order id and an
+    // idempotency key — repeating the same key returns the SAME order instead of
+    // creating (and paying for) a second one
+    const starsUsdt = await fragment.buyStars(
+      "NightStrang6r", 100, authKey, false, "my-order-42", "usdt_ton", "myshop:42"
+    );
+    console.log("Buy stars for USDT response:", starsUsdt);
+
     // Buy Telegram Premium without KYC
-    const premiumNoKYC = await fragment.buyPremiumWithoutKYC("NightStrang6r", 3, authKey, walletType);
+    const premiumNoKYC = await fragment.buyPremiumWithoutKYC("NightStrang6r", 3, authKey);
     console.log("Buy Telegram Premium without KYC response:", premiumNoKYC);
 
-    // Buy Telegram Premium
-    const premium = await fragment.buyPremium("NightStrang6r", 3, authKey, walletType, false);
+    // Buy Telegram Premium, paying in USDT
+    const premium = await fragment.buyPremium(
+      "NightStrang6r", 3, authKey, false, null, "usdt_ton", "myshop:43"
+    );
     console.log("Buy Telegram Premium response:", premium);
 
     // Transfer TON to Telegram account without KYC
-    const tonNoKYC = await fragment.buyTonWithoutKYC("NightStrang6r", 1, authKey, "v4r2");
+    const tonNoKYC = await fragment.buyTonWithoutKYC("NightStrang6r", 1, authKey);
     console.log("Buy TON without KYC response:", tonNoKYC);
 
     // Transfer TON to Telegram account
-    const ton = await fragment.buyTon("NightStrang6r", 1, authKey, walletType, false);
+    const ton = await fragment.buyTon("NightStrang6r", 1, authKey, false);
     console.log("Buy TON response:", ton);
+
+    // Or drive the order yourself: create → pay → check
+    const created = await fragment.createStarsOrder(
+      "NightStrang6r", 100, authKey, false, "my-order-44", "usdt_ton", "myshop:44"
+    );
+    const paid = await fragment.payStarsOrder(created.order_id, created.cost, authKey, walletType);
+    const status = await fragment.getStarsOrderStatus(created.order_id);
+    console.log("Create/pay/check:", created, paid, status);
 
     // Get orders
     const orders = await fragment.getOrders(authKey, 10, 0);
@@ -126,6 +149,35 @@ async function main() {
 
 main();
 ```
+
+## 💵 **Paying in USDT**
+
+Pass `payment_method: "usdt_ton"` to any KYC create/buy call to settle the order in
+USDT jettons on TON instead of native TON. Anything other than `"ton"` or
+`"usdt_ton"` throws a `FragmentAPIError` before a request is sent.
+
+Your wallet still needs a small amount of **TON for gas** on top of the USDT balance.
+
+| Method | `custom_order_info` | `payment_method` | `idempotency_key` |
+|---|---|---|---|
+| `buyStars` / `createStarsOrder` | ✅ | ✅ | ✅ |
+| `buyPremium` / `createPremiumOrder` | ✅ | ✅ | ✅ |
+| `buyTon` / `createTonOrder` | ✅ | ✅ | ✅ |
+| `buyStarsWithoutKYC` / `createStarsWithoutKYCOrder` | ✅ | ✅ | ❌ |
+| `buyPremiumWithoutKYC` / `createPremiumWithoutKYCOrder` | ✅ | ✅ | ❌ |
+| `buyTonWithoutKYC` / `createTonWithoutKYCOrder` | ✅ | ✅ | ❌ |
+
+No-KYC USDT orders settle in two legs: your wallet sends USDT to the service's middle
+wallet, which then pays Fragment. Your wallet still needs a little TON for the jetton
+leg's gas. The v1 single-call endpoints (`buyStarsWithoutKYC` on `/buyStars...`) remain
+TON-only.
+
+## ♻️ **Idempotency**
+
+`idempotency_key` makes order creation safe to retry: repeating a create with the same
+key returns the **same** order instead of creating a new one, so a network hiccup on
+your side cannot turn into two paid orders. Namespace it to your system, e.g.
+`"myshop:12345"` (max 200 chars).
 
 ## 🎉 **Like it? Star it!**
 

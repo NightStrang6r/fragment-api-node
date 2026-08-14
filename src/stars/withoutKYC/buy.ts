@@ -1,22 +1,25 @@
 import FragmentAPIError from "../../FragmentAPIError.js";
+import { assertPaymentMethod, DEFAULT_PAYMENT_METHOD } from "../../utils/paymentMethod.js";
 
-export async function buyStarsWithoutKYC(this: any, username: string, amount: number, authKey?: string) {
-  const createResp = await this.post("/v2/buyStarsWithoutKYC/create", {
+// "usdt_ton" is supported here: the no-KYC flow settles a jetton order in two legs
+// (user -> middle wallet in USDT, middle wallet -> Fragment). Needs a little TON for gas.
+export async function buyStarsWithoutKYC(this: any, username: string, amount: number, authKey?: string, custom_order_info: string | null = null, payment_method: string = DEFAULT_PAYMENT_METHOD) {
+  const createReq = {
     username: username,
     amount: amount,
-    auth_key: this.getAuthKey(authKey)
-  });
+    auth_key: this.getAuthKey(authKey),
+    custom_order_info: custom_order_info,
+    payment_method: assertPaymentMethod(payment_method)
+  };
+
+  const createResp = await this.post("/v2/buyStarsWithoutKYC/create", createReq);
 
   if (!createResp.success) {
     const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED", "BAD_REQUEST"];
     if (retryableCreateErrors.includes(createResp.error_code)) {
       for (let attempt = 1; attempt <= 3; attempt++) {
         await this.delay(1000 * attempt);
-        const retryResp = await this.post("/v2/buyStarsWithoutKYC/create", {
-          username: username,
-          amount: amount,
-          auth_key: this.getAuthKey(authKey)
-        });
+        const retryResp = await this.post("/v2/buyStarsWithoutKYC/create", createReq);
         if (retryResp.success) {
           Object.assign(createResp, retryResp);
           break;

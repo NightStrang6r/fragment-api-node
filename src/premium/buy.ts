@@ -1,25 +1,27 @@
 import FragmentAPIError from "../FragmentAPIError.js";
+import { assertPaymentMethod, DEFAULT_PAYMENT_METHOD } from "../utils/paymentMethod.js";
 
-export async function buyPremium(this: any, username: string, duration: number = 3, authKey?: string, showSender: boolean = false, custom_order_info: string | null = null) {
-  const createResp = await this.post("/v2/buyPremium/create", {
+export async function buyPremium(this: any, username: string, duration: number = 3, authKey?: string, showSender: boolean = false, custom_order_info: string | null = null, payment_method: string = DEFAULT_PAYMENT_METHOD, idempotency_key: string | null = null) {
+  // Built once and reused for the retries below, so a retry cannot silently drop
+  // fields (an idempotency_key that went missing would create a duplicate order).
+  const createReq = {
     username: username,
     duration: duration,
     auth_key: this.getAuthKey(authKey),
     show_sender: showSender,
-    custom_order_info: custom_order_info
-  });
+    custom_order_info: custom_order_info,
+    payment_method: assertPaymentMethod(payment_method),
+    idempotency_key: idempotency_key
+  };
+
+  const createResp = await this.post("/v2/buyPremium/create", createReq);
 
   if (!createResp.success) {
     const retryableCreateErrors = ["SEARCH_ERROR", "ORDER_CREATION_FAILED"];
     if (retryableCreateErrors.includes(createResp.error_code)) {
       for (let attempt = 1; attempt <= 3; attempt++) {
         await this.delay(1000 * attempt);
-        const retryResp = await this.post("/v2/buyPremium/create", {
-          username: username,
-          duration: duration,
-          auth_key: this.getAuthKey(authKey),
-          show_sender: showSender
-        });
+        const retryResp = await this.post("/v2/buyPremium/create", createReq);
         if (retryResp.success) {
           Object.assign(createResp, retryResp);
           break;
