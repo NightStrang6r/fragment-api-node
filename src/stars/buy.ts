@@ -1,5 +1,6 @@
 import FragmentAPIError from "../FragmentAPIError.js";
 import { assertPaymentMethod, DEFAULT_PAYMENT_METHOD } from "../utils/paymentMethod.js";
+import { settledByCreate, payV2Order } from "../utils/v2Order.js";
 
 export async function buyStars(this: any, username: string, amount: number, authKey?: string, showSender: boolean = false, custom_order_info: string | null = null, payment_method: string = DEFAULT_PAYMENT_METHOD, idempotency_key: string | null = null) {
   // Built once and reused for the retries below, so a retry cannot silently drop
@@ -38,6 +39,11 @@ export async function buyStars(this: any, username: string, amount: number, auth
     }
   }
 
+  // An idempotent create answers with the order the key already names: a paid one is
+  // done, one in flight or failed is never paid again (see utils/v2Order.ts).
+  const settled = settledByCreate(createResp);
+  if (settled) return settled;
+
   const orderId = createResp.order_id;
   const cost = createResp.cost;
   const recipient_id = createResp.recipient_id;
@@ -46,87 +52,5 @@ export async function buyStars(this: any, username: string, amount: number, auth
     throw new FragmentAPIError(`Recipient ID ${recipient_id} (${username}) is banned.`);
   }
 
-  let lastError: any = null;
-  let payResp: any = null;
-  let networkErrorDuringPay = false;
-
-  const retryablePayErrors = [
-    "BALANCE_CHECK_ERROR",
-    //"TRANSFER_FAILED"
-  ];
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      payResp = await this.post("/v2/buyStars/pay", {
-        order_uuid: orderId,
-        auth_key: this.getAuthKey(authKey),
-        cost,
-        wallet_type: this.walletVersion,
-      });
-
-      if (payResp.success) {
-        return payResp;
-      } else {
-        const err = new FragmentAPIError(`Pay error: ${payResp.message}`);
-        (err as any).error_code = payResp.error_code;
-        throw err;
-      }
-    } catch (err: any) {
-      lastError = err;
-
-      if (err.error_code && !retryablePayErrors.includes(err.error_code)) {
-        throw err;
-      }
-      if (err.message?.includes("4") || err.message?.includes("5")) {
-        throw err;
-      }
-
-      networkErrorDuringPay = true;
-
-      await this.delay(1000 * attempt);
-    }
-  }
-
-  if (networkErrorDuringPay) {
-    const maxCheckDurationMs = 2 * 60 * 60 * 1000; // 2 hours — hard limit
-    const ambiguousThresholdMs = 60 * 1000;        // 1 min stuck in "processing" → mark ambiguous
-    const checkIntervalMs = 15 * 1000;
-    const startTime = Date.now();
-
-    while (Date.now() - startTime < maxCheckDurationMs) {
-      try {
-        const checkResp = await this.get(`/v2/buyStars/check?uuid=${orderId}`);
-
-        if ((checkResp.success && (checkResp.status == "success" || checkResp.status == "failed")) || ("error_code" in checkResp && checkResp.error_code !== "ORDER_ALREADY_PROCESSING")) {
-          return checkResp;
-        }
-
-        // Order stuck in "processing" too long — likely our server caught an ambiguous error
-        // and intentionally left order in processing. Return TRANSFER_AMBIGUOUS to caller so it
-        // does NOT retry (retry would cause double-spend).
-        if (Date.now() - startTime > ambiguousThresholdMs) {
-          return {
-            success: false,
-            message: "Transfer state unclear - order stuck in processing, manual verification required",
-            error_code: "TRANSFER_AMBIGUOUS",
-            requires_manual_check: true,
-            order_id: orderId,
-          };
-        }
-      } catch (checkErr: any) {
-        if (checkErr?.error_code !== "ORDER_ALREADY_PROCESSING") {
-          return checkErr;
-        }
-      }
-
-      await this.delay(checkIntervalMs);
-    }
-
-    return {
-      success: false,
-      message: "Timed out waiting for processing to finish",
-      error_code: "ORDER_ALREADY_PROCESSING_TIMEOUT"
-    };
-  }
-  throw lastError;
+  return payV2Order(this, "buyStars", orderId, cost, authKey, !!idempotency_key);
 }

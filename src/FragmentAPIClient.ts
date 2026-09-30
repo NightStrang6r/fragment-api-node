@@ -139,8 +139,10 @@ export default class FragmentAPIClient {
             throw FragmentAPIClient.requestFailed(err);
         }
 
+        // The server's error_code travels with the error: it is what tells "refused,
+        // nothing charged" from "outcome unknown" (see utils/v2Order.ts).
         if (response.status >= 400) {
-            throw new FragmentAPIError(response?.data?.message || `HTTP Error: ${response.status}`, response.status);
+            throw new FragmentAPIError(response?.data?.message || `HTTP Error: ${response.status}`, response.status, response?.data?.error_code);
         }
 
         return response.data;
@@ -155,7 +157,7 @@ export default class FragmentAPIClient {
         }
 
         if (response.status >= 400) {
-            throw new FragmentAPIError(response?.data?.message || `HTTP Error: ${response.status}`, response.status);
+            throw new FragmentAPIError(response?.data?.message || `HTTP Error: ${response.status}`, response.status, response?.data?.error_code);
         }
 
         return response.data;
