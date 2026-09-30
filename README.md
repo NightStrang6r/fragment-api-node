@@ -60,6 +60,33 @@
 npm i fragment-api
 ```
 
+## 🔐 **API v3: your seed never leaves your machine**
+
+API v1/v2 send your wallet's mnemonic to the server, which signs your payments. v3 does not:
+the server prepares each payment, this SDK checks it and signs it locally, the server relays
+and confirms it. v1/v2 are deprecated.
+
+```js
+import { FragmentAPIv3 } from "fragment-api";
+
+const api = new FragmentAPIv3({
+    mnemonic: process.env.TON_SEED,          // used only here, never sent
+    walletType: "v5r1",                      // the wallet you actually use: "v4r2" or "v5r1"
+    fragmentCookies: process.env.FRAGMENT_COOKIES,   // for KYC orders (your Fragment account)
+    trust: { maxTonPerOrder: 50, maxUsdtPerOrder: 200 },  // refuse to sign anything bigger
+});
+
+const result = await api.buy({ product: "stars", username: "durov", amount: 50, idempotencyKey: "shop:123" });
+```
+
+Before signing, the SDK refuses any payment that is not to Fragment (addresses pinned in the
+SDK), to the operator's fee / no-KYC wallet, within the fee ceiling (default 5 %) and your
+caps - so even a compromised server can not make it sign something else.
+
+To survive a crash between signing and hearing back: `const p = await api.prepare([order])`,
+store `p`, then `await api.submit(p)`. Submitting the same prepared payment again is always
+safe. Never re-sign an order whose result was `TRANSFER_AMBIGUOUS` - check it first.
+
 ## ☑️ **Usage examples**
 
 ```js
