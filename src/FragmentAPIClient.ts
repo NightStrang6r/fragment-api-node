@@ -109,32 +109,45 @@ export default class FragmentAPIClient {
         });
     }
 
+    // An axios error carries the whole request: for /v2/auth that is the seed and
+    // the Fragment cookies, for every other call the auth key. Callers log errors
+    // whole - that is how seeds ended up in a server's logs - so they get only the
+    // cause: the same message and code, without the request.
+    private static requestFailed(err: any): FragmentAPIError {
+        const e: FragmentAPIError & { code?: string } = new FragmentAPIError(
+            err?.message || "Request failed", err?.response?.status);
+        if (err?.code) e.code = err.code;
+        return e;
+    }
+
     private async get(path: string) {
+        let response;
         try {
-            const response = await this.http.get(path);
-
-            if (response.status >= 400) {
-                throw new FragmentAPIError(response?.data?.message || `HTTP Error: ${response.status}`, response.status);
-            }
-
-            return response.data;
+            response = await this.http.get(path);
         } catch (err: any) {
-            throw err;
+            throw FragmentAPIClient.requestFailed(err);
         }
+
+        if (response.status >= 400) {
+            throw new FragmentAPIError(response?.data?.message || `HTTP Error: ${response.status}`, response.status);
+        }
+
+        return response.data;
     }
 
     private async post(path: string, data: any) {
+        let response;
         try {
-            const response = await this.http.post(path, data);
-
-            if (response.status >= 400) {
-                throw new FragmentAPIError(response?.data?.message || `HTTP Error: ${response.status}`, response.status);
-            }
-
-            return response.data;
+            response = await this.http.post(path, data);
         } catch (err: any) {
-            throw err;
+            throw FragmentAPIClient.requestFailed(err);
         }
+
+        if (response.status >= 400) {
+            throw new FragmentAPIError(response?.data?.message || `HTTP Error: ${response.status}`, response.status);
+        }
+
+        return response.data;
     }
 
     private getSeed(seed?: string): string {
