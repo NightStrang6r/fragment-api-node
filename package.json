@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "description": "❇️ NodeJS API client wrapper for Fragment, purchase of Telegram Stars & Premium 💙",
   "type": "module",
-  "main": "test.js",
+  "main": "index.js",
   "scripts": {
     "build": "tsc",
     "example": "node example.js"
