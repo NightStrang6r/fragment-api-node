@@ -99,35 +99,27 @@ address, and payments would be signed for an empty wallet.
 ## 🛡️ **What is checked before signing**
 
 The server no longer holds your seed, but it still says what to sign - so nothing is
-signed blindly:
+signed on its word alone:
 
-- the payment is from your wallet, and has exactly the legs the order needs: Fragment's
+- the order is the one **you asked for** - product, amount, recipient, KYC or not,
+  currency - checked against your request, not against the server's copy of it;
+- the payment is from your wallet and has exactly the legs that order needs: Fragment's
   (plus the service fee) with KYC, one payment to the service's wallet without KYC;
 - **Fragment's leg** goes to a Fragment address **pinned in this library** - never one the
-  server names. For USDT the jetton recipient is checked, and the unused gas must come
-  back to you;
-- the **fee leg** and the **no-KYC leg** go only to the service wallets you trust;
+  server names;
+- a **USDT transfer** goes only to your own USDT wallet, which the library computes itself
+  (so no other token of yours can be moved), and the unused gas comes back to you;
+- the **fee** and **no-KYC** legs go only to the service's wallets built into this release
+  (or ones you add) - never to a wallet the server names;
 - the fee is at most `maxFeePercent` (5 %) of the purchase;
-- the order stays under your `maxTonPerOrder` / `maxUsdtPerOrder`;
-- the signed message expires within 2 minutes (`externalTtlSeconds`).
+- the order costs no more than your `maxTonPerOrder` (and `maxUsdtPerOrder` for USDT).
+  These limits are **required**: nothing is signed without them. What Fragment's invoice
+  buys can not be checked, so the limit is what bounds how much a compromised server could
+  make one order cost;
+- the signed message expires within 2 minutes (`externalTtlSeconds`), and a payment is
+  signed again only with the same seqno - so it can never be paid twice.
 
 A payment that fails any check throws `UNTRUSTED_PAYMENT` and nothing is sent.
-
-By default the service wallets come from `/v3/config` when the client starts. For the
-strictest setup, pin them yourself and turn that off:
-
-```js
-const api = new FragmentAPIv3({
-    mnemonic, walletType: "v5r1", fragmentCookies,
-    trust: {
-        trustServerConfig: false,
-        feeWallets: ["UQ..."],       // the fee wallet, from the operator
-        middleWallets: ["UQ..."],    // the no-KYC wallet, from the operator
-        maxTonPerOrder: 50,
-        maxUsdtPerOrder: 200,
-    },
-});
-```
 
 ## 📚 **API**
 
@@ -139,7 +131,7 @@ const api = new FragmentAPIv3({
 | `walletType` | `"v4r2"` | `"v4r2"` or `"v5r1"` (W5) |
 | `fragmentCookies` | - | Needed for KYC orders |
 | `baseUrl` | `https://api.fragment-api.net` | |
-| `trust` | `{}` | `fragmentAddresses` (added to the pinned ones), `feeWallets`, `middleWallets`, `trustServerConfig` (`true`), `maxFeePercent` (`5`), `maxTonPerOrder`, `maxUsdtPerOrder` |
+| `trust` | - | **`maxTonPerOrder`** (required), **`maxUsdtPerOrder`** (required for USDT), `feeWallets` / `middleWallets` / `fragmentAddresses` (added to the built-in ones), `maxFeePercent` (`5`), `usdtWallet` (if yours is not the standard one), `trustServerConfig` (`false`: `true` also accepts wallets the server names - for testing) |
 | `externalTtlSeconds` | `120` | How long a signed payment stays valid (max 300) |
 
 ### Methods
@@ -166,8 +158,8 @@ The `order` object for `buy` / `createOrder`:
 | `product` | `"stars"`, `"premium"` or `"ton"` |
 | `username` | Telegram username: `durov`, `@durov` or `https://t.me/durov` |
 | `amount` | Stars (min 50), TON (min 1), or Premium months (3, 6, 12) |
-| `kyc` | `true` (default): your Fragment account. `false`: bought through the service |
-| `paymentMethod` | `"ton"` (default) or `"usdt_ton"` |
+| `kyc` | `true` (default): your Fragment account. `false`: bought through the service, paid in TON |
+| `paymentMethod` | `"ton"` (default) or `"usdt_ton"` (with your own Fragment account) |
 | `showSender` | Show you as the sender (default `true`) |
 | `idempotencyKey` | Your id for the order, e.g. `"myshop:1001"` - strongly recommended |
 | `customOrderInfo` | Any note for your own reference |
@@ -189,15 +181,17 @@ Runnable versions of all of these: [example.js](https://github.com/NightStrang6r
 
 ### Premium without KYC
 
-No Fragment account, no cookies:
+No Fragment account, no cookies - paid in TON:
 
 ```js
-const api = new FragmentAPIv3({ mnemonic: process.env.TON_SEED, walletType: "v5r1" });
+const api = new FragmentAPIv3({ mnemonic: process.env.TON_SEED, walletType: "v5r1", trust: { maxTonPerOrder: 50 } });
 
 await api.buy({ product: "premium", username: "durov", amount: 3, kyc: false });
 ```
 
 ### Pay in USDT
+
+With your own Fragment account, from the wallet linked to it, and `maxUsdtPerOrder` set:
 
 ```js
 await api.buy({ product: "stars", username: "durov", amount: 500, paymentMethod: "usdt_ton" });
@@ -246,7 +240,7 @@ Failures throw a `FragmentAPIError` with `message`, `status`, `error_code` and `
 
 | `error_code` | What happened | What to do |
 |---|---|---|
-| `UNTRUSTED_PAYMENT` | This library refused to sign | Nothing was sent. Check your `trust` settings |
+| `UNTRUSTED_PAYMENT` | This library refused to sign | Nothing was sent. Check your `trust` settings (a limit is required) |
 | `INSUFFICIENT_BALANCE` | Not enough TON / USDT | Nothing was sent. Top up and pay again |
 | `ORDER_EXPIRED` | Fragment's invoice expired | Create the order again (same `idempotencyKey` is fine) |
 | `TRANSFER_FAILED` | The network rejected the payment | See `details.orders` |
@@ -255,6 +249,7 @@ Failures throw a `FragmentAPIError` with `message`, `status`, `error_code` and `
 | `FRAGMENT_COOKIES_REQUIRED` | A KYC order without cookies | Pass `fragmentCookies`, or use `kyc: false` |
 | `WALLET_NOT_CONNECTED_TO_FRAGMENT` | USDT from another wallet | Pay USDT orders from the wallet linked to your Fragment account |
 | `NO_KYC_UNAVAILABLE` | No-KYC purchases are paused | Try later |
+| `NO_KYC_USDT_UNAVAILABLE` | USDT without KYC | Orders without KYC are paid in TON |
 
 ```js
 try {
@@ -285,8 +280,9 @@ off - move to `FragmentAPIv3`:
 | `getBalance(authKey)` | `walletInfo()` |
 | `getOrders(authKey, limit, offset)` | `listOrders(limit, offset)` |
 
-With the same wallet, v3 sees the orders and idempotency keys you made in v2, so an order
-bought through v2 can not be bought again through v3.
+Switch to a **new wallet** as you move: v1 and v2 sent your seed phrase to the server, so
+treat any seed you used with them as exposed. Orders from your old wallet stay under it -
+the operator can link them to your new one on request.
 
 ## 🗄️ **Legacy API v2 client**
 

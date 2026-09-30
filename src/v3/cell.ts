@@ -68,6 +68,19 @@ export class Cell {
     }
 }
 
+// A library cell (exotic, type 2): code published on chain, referenced by its hash. Only
+// hashed here, never serialized - USDT's jetton wallet code is one (payment.ts).
+class LibraryCell extends Cell {
+    descriptors(): [number, number] {
+        return [8, 66];   // no refs, exotic, level 0; 264 data bits
+    }
+}
+
+export function libraryCell(codeHash: Buffer): Cell {
+    if (codeHash.length !== 32) throw new Error("a library cell holds a 32-byte hash");
+    return new LibraryCell(beginCell().storeUint(2, 8).storeBuffer(codeHash).endCell().bits);
+}
+
 export function bitsToBuffer(bits: readonly number[]): Buffer {
     const out = Buffer.alloc(Math.ceil(bits.length / 8));
     bits.forEach((b, i) => {

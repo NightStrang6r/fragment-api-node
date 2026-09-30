@@ -6,18 +6,22 @@ import FragmentAPIError from "../FragmentAPIError.js";
 import { Address } from "./address.js";
 import { cellFromBase64 } from "./cell.js";
 import { KeyPair, keyPairFromMnemonic } from "./keys.js";
-import { FRAGMENT_ADDRESSES, PaymentRequest, TrustPolicy, UntrustedPayment, checkPayment } from "./payment.js";
+import {
+    Expected, FRAGMENT_ADDRESSES, OPERATOR_FEE_WALLETS, OPERATOR_MIDDLE_WALLETS, PaymentRequest, TrustPolicy,
+    UntrustedPayment, checkPayment,
+} from "./payment.js";
 import { cookiesPayload, tonProofSignature } from "./proof.js";
 import { MAX_MESSAGES, WalletType, signExternal, walletAddress } from "./wallet.js";
 
 export interface TrustOptions {
+    maxTonPerOrder?: number;        // TON, all legs of one order. Required: nothing is signed without it
+    maxUsdtPerOrder?: number;       // USDT. Required for USDT orders
     fragmentAddresses?: string[];   // added to the pinned list, never replacing it
-    feeWallets?: string[];
-    middleWallets?: string[];
-    trustServerConfig?: boolean;    // accept fee/middle wallets named by /v3/config (default true)
+    feeWallets?: string[];          // added to the pinned OPERATOR_FEE_WALLETS
+    middleWallets?: string[];       // added to the pinned OPERATOR_MIDDLE_WALLETS
+    trustServerConfig?: boolean;    // also accept the fee/middle wallets /v3/config names (default false)
     maxFeePercent?: number;         // default 5
-    maxTonPerOrder?: number;        // TON
-    maxUsdtPerOrder?: number;       // USDT
+    usdtWallet?: string;            // your USDT jetton wallet, if it is not the standard one
 }
 
 export interface FragmentAPIv3Options {
@@ -43,7 +47,8 @@ export interface CreateOrderParams {
 export interface CreatedOrder {
     order: any;
     payment: PaymentRequest | null;
-    recipientId?: string;   // Fragment's id for the recipient (fresh creates only)
+    recipientId?: string;           // Fragment's id for the recipient (fresh creates only)
+    request?: CreateOrderParams;    // what was asked for - the checks use this, not the server's echo
 }
 
 export interface PreparedPayment {
@@ -51,25 +56,66 @@ export interface PreparedPayment {
     boc: string;
     normalizedHash: string;
     validUntil: number;
+    seqno: number;                  // a re-signature of these orders keeps it (see submit)
+    stateInit: boolean;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// After its valid_until an external can never be applied; this long past it, no block
+// that could still carry it will come.
+const EXPIRY_MARGIN_MS = 30_000;
+const USERNAME = /(?:^https?:\/\/t\.me\/|^@|^)([a-zA-Z0-9_]{5,32})\/?$/;
+
+function untrusted(message: string): FragmentAPIError {
+    return new FragmentAPIError(`Refusing to sign: ${message}`, undefined, "UNTRUSTED_PAYMENT");
+}
+
+// The server's copy of the order must be the order that was asked for.
+function checkEcho(created: CreatedOrder): void {
+    const p = created.request;
+    const o = created.order ?? {};
+    if (!p) return;
+    const name = (s: string) => (USERNAME.exec(String(s ?? "").trim())?.[1] ?? "").toLowerCase();
+    const same = o.product === p.product && Number(o.amount) === Number(p.amount)
+        && (o.kyc !== false) === (p.kyc ?? true)
+        && (o.payment_method ?? "ton") === (p.paymentMethod ?? "ton")
+        && name(o.username) !== "" && name(o.username) === name(p.username);
+    if (!same) throw untrusted("the order is not the one that was asked for");
+}
+
+function expectedOf(created: CreatedOrder): Expected {
+    // Without the request (e.g. an order from getOrder) nothing but a KYC order in the
+    // order's own currency is accepted: the no-KYC shape pays the service directly.
+    const p = created.request;
+    return {
+        kyc: p ? (p.kyc ?? true) : true,
+        paymentMethod: p ? (p.paymentMethod ?? "ton") : (created.order?.payment_method === "usdt_ton" ? "usdt_ton" : "ton"),
+    };
+}
 
 export class FragmentAPIv3 {
     readonly walletType: WalletType;
     readonly wallet: Address;
-    private readonly keyPair: KeyPair;
-    private readonly http: AxiosInstance;
-    private readonly baseUrl: string;
-    private authKey?: string;
-    private policy?: TrustPolicy;
+    readonly #keyPair: KeyPair;          // private fields: never in console.log or JSON
+    readonly #fragmentCookies?: string;
+    #authKey?: string;
+    readonly #http: AxiosInstance;
+    readonly #baseUrl: string;
+    readonly #trust: TrustOptions;
+    readonly #ttl: number;
+    #policy?: TrustPolicy;
+    // Orders signed by this client: the seqno and expiry of their latest external.
+    readonly #signed = new Map<string, { seqno: number; validUntil: number }>();
 
-    constructor(private readonly opts: FragmentAPIv3Options) {
+    constructor(opts: FragmentAPIv3Options) {
         this.walletType = opts.walletType ?? "v4r2";
-        this.keyPair = keyPairFromMnemonic(opts.mnemonic);
-        this.wallet = walletAddress(this.walletType, this.keyPair.publicKey);
-        this.baseUrl = (opts.baseUrl ?? "https://api.fragment-api.net").replace(/\/$/, "");
-        this.http = axios.create({ baseURL: this.baseUrl, validateStatus: () => true, timeout: 0 });
+        this.#keyPair = keyPairFromMnemonic(opts.mnemonic);
+        this.wallet = walletAddress(this.walletType, this.#keyPair.publicKey);
+        this.#fragmentCookies = opts.fragmentCookies;
+        this.#baseUrl = (opts.baseUrl ?? "https://api.fragment-api.net").replace(/\/$/, "");
+        this.#http = axios.create({ baseURL: this.#baseUrl, validateStatus: () => true, timeout: 0 });
+        this.#trust = { ...(opts.trust ?? {}) };
+        this.#ttl = Math.min(opts.externalTtlSeconds ?? 120, 300);
     }
 
     get address(): string {
@@ -81,8 +127,8 @@ export class FragmentAPIv3 {
         const headers: Record<string, string> = {};
         if (auth) headers.Authorization = "Bearer " + (await this.ensureAuth());
         try {
-            const r = method === "get" ? await this.http.get(path, { headers, params: data })
-                : await this.http.post(path, data, { headers });
+            const r = method === "get" ? await this.#http.get(path, { headers, params: data })
+                : await this.#http.post(path, data, { headers });
             return { status: r.status, data: r.data };
         } catch (err: any) {
             const e: any = new FragmentAPIError(err?.message || "Request failed", undefined, "NETWORK_ERROR");
@@ -97,26 +143,26 @@ export class FragmentAPIv3 {
     }
 
     async auth(): Promise<string> {
-        const domain = new URL(this.baseUrl).hostname;
+        const domain = new URL(this.#baseUrl).hostname;
         const timestamp = Math.floor(Date.now() / 1000);
-        const payload = cookiesPayload(this.opts.fragmentCookies);
-        const signature = tonProofSignature(this.keyPair, this.wallet, domain, timestamp, payload);
+        const payload = cookiesPayload(this.#fragmentCookies);
+        const signature = tonProofSignature(this.#keyPair, this.wallet, domain, timestamp, payload);
         const r = await this.call("post", "/v3/auth", {
-            public_key: this.keyPair.publicKey.toString("hex"),
+            public_key: this.#keyPair.publicKey.toString("hex"),
             wallet_type: this.walletType,
-            fragment_cookies: this.opts.fragmentCookies ?? null,
+            fragment_cookies: this.#fragmentCookies ?? null,
             proof: { timestamp, domain, payload, signature: signature.toString("base64") },
         }, false);
         if (r.status !== 200 || !r.data?.auth_key) this.fail(r);
         if (!Address.parse(r.data.wallet.address).equals(this.wallet)) {
             throw new FragmentAPIError("Server derived a different wallet address", r.status, "WALLET_MISMATCH");
         }
-        this.authKey = r.data.auth_key;
-        return this.authKey!;
+        this.#authKey = r.data.auth_key;
+        return this.#authKey!;
     }
 
     private async ensureAuth(): Promise<string> {
-        return this.authKey ?? this.auth();
+        return this.#authKey ?? this.auth();
     }
 
     async config(): Promise<any> {
@@ -156,55 +202,65 @@ export class FragmentAPIv3 {
             idempotency_key: p.idempotencyKey ?? null, custom_order_info: p.customOrderInfo ?? null,
         });
         if (r.status !== 200) this.fail(r);
-        return { order: r.data.order, payment: r.data.payment, recipientId: r.data.recipient_id };
+        const created: CreatedOrder = { order: r.data.order, payment: r.data.payment, recipientId: r.data.recipient_id, request: { ...p } };
+        checkEcho(created);
+        return created;
     }
 
     // The checks prepare() makes, for one order and without signing: lets a caller that
     // batches orders turn away a bad one alone instead of failing the whole batch.
     async checkOrder(created: CreatedOrder): Promise<void> {
         if (!created.payment) throw new FragmentAPIError(`Order ${created.order?.id} has nothing to pay`, undefined, "NOTHING_TO_PAY");
+        checkEcho(created);
         try {
-            checkPayment(created.payment, this.wallet, await this.trustPolicy(), created.order.kyc !== false);
+            checkPayment(created.payment, this.wallet, await this.trustPolicy(), expectedOf(created));
         } catch (e) {
-            if (e instanceof UntrustedPayment) throw new FragmentAPIError(`Refusing to sign: ${e.message}`, undefined, "UNTRUSTED_PAYMENT");
+            if (e instanceof UntrustedPayment) throw untrusted(e.message);
             throw e;
         }
     }
 
     private async trustPolicy(): Promise<TrustPolicy> {
-        if (this.policy) return this.policy;
-        const t = this.opts.trust ?? {};
-        const fee = [...(t.feeWallets ?? [])];
-        const middle = [...(t.middleWallets ?? [])];
-        if (t.trustServerConfig ?? true) {
+        if (this.#policy) return this.#policy;
+        const t = this.#trust;
+        const fee = [...OPERATOR_FEE_WALLETS, ...(t.feeWallets ?? [])];
+        const middle = [...OPERATOR_MIDDLE_WALLETS, ...(t.middleWallets ?? [])];
+        if (t.trustServerConfig === true) {
             const cfg = await this.config();
             if (cfg.fee_wallet) fee.push(cfg.fee_wallet);
             if (cfg.middle_wallet) middle.push(cfg.middle_wallet);
         }
-        this.policy = {
+        this.#policy = {
             fragmentAddresses: [...FRAGMENT_ADDRESSES, ...(t.fragmentAddresses ?? [])],
             feeWallets: fee,
             middleWallets: middle,
             maxFeePercent: t.maxFeePercent ?? 5,
             maxTonPerOrder: t.maxTonPerOrder !== undefined ? BigInt(Math.round(t.maxTonPerOrder * 1e9)) : undefined,
             maxUsdtPerOrder: t.maxUsdtPerOrder !== undefined ? BigInt(Math.round(t.maxUsdtPerOrder * 1e6)) : undefined,
+            usdtWallet: t.usdtWallet ? Address.parse(t.usdtWallet) : undefined,
         };
-        return this.policy;
+        return this.#policy;
     }
 
     // Check and sign one external paying these orders. Persist the result before submitting
     // it if you need to survive a crash: resubmitting the SAME external is always safe.
-    async prepare(created: CreatedOrder[]): Promise<PreparedPayment> {
+    //
+    // `seqno` re-signs with the seqno of an earlier external for the same orders: both
+    // can not land, so it is the only safe re-signature. With a different seqno, an
+    // earlier external of these orders that is still valid could land as well - so this
+    // waits until every such external has expired before signing.
+    async prepare(created: CreatedOrder[], resign?: { seqno: number; stateInit: boolean }): Promise<PreparedPayment> {
         if (!created.length) throw new Error("nothing to pay");
         const policy = await this.trustPolicy();
         const messages: { address: string; amount: bigint; body: ReturnType<typeof cellFromBase64> }[] = [];
         let deadline = Number.MAX_SAFE_INTEGER;
         for (const c of created) {
             if (!c.payment) throw new FragmentAPIError(`Order ${c.order?.id} has no payment to sign (status ${c.order?.status})`, undefined, "NOTHING_TO_PAY");
+            checkEcho(c);
             try {
-                checkPayment(c.payment, this.wallet, policy, c.order.kyc !== false);
+                checkPayment(c.payment, this.wallet, policy, expectedOf(c));
             } catch (e) {
-                if (e instanceof UntrustedPayment) throw new FragmentAPIError(`Refusing to sign: ${e.message}`, undefined, "UNTRUSTED_PAYMENT");
+                if (e instanceof UntrustedPayment) throw untrusted(e.message);
                 throw e;
             }
             deadline = Math.min(deadline, c.payment.valid_until);
@@ -213,19 +269,31 @@ export class FragmentAPIv3 {
         if (messages.length > MAX_MESSAGES[this.walletType]) {
             throw new FragmentAPIError(`${messages.length} messages exceed what a ${this.walletType} wallet sends at once`, undefined, "TOO_MANY_MESSAGES");
         }
-        const w = await this.walletInfo();
-        const ttl = Math.min(this.opts.externalTtlSeconds ?? 120, 300);
+        const ids = created.map((c) => String(c.order.id));
+        let seqno: number, stateInit: boolean;
+        if (resign) {
+            ({ seqno, stateInit } = resign);
+        } else {
+            const w = await this.walletInfo();
+            seqno = Number(w.seqno);
+            stateInit = w.state !== "active";
+            const live = Math.max(0, ...ids.map((id) => this.#signed.get(id))
+                .filter((s): s is { seqno: number; validUntil: number } => !!s && s.seqno !== seqno)
+                .map((s) => s.validUntil * 1000 + EXPIRY_MARGIN_MS - Date.now()));
+            if (live > 360_000) throw new FragmentAPIError("An earlier signature of these orders is still valid", undefined, "EARLIER_SIGNATURE_VALID");
+            if (live > 0) await sleep(live);
+        }
+        const ttl = this.#ttl;
         const validUntil = Math.min(deadline, Math.floor(Date.now() / 1000) + ttl);
-        const signed = signExternal({
-            type: this.walletType, keyPair: this.keyPair, seqno: Number(w.seqno), validUntil, messages,
-            includeStateInit: w.state !== "active",
-        });
-        return { orders: created.map((c) => String(c.order.id)), boc: signed.boc, normalizedHash: signed.normalizedHash, validUntil };
+        const signed = signExternal({ type: this.walletType, keyPair: this.#keyPair, seqno, validUntil, messages, includeStateInit: stateInit });
+        for (const id of ids) this.#signed.set(id, { seqno, validUntil });
+        return { orders: ids, boc: signed.boc, normalizedHash: signed.normalizedHash, validUntil, seqno, stateInit };
     }
 
     // Submit a prepared external. Retries what is safe to retry: the same external when the
-    // outcome is unknown or nothing was sent; never a new signature unless the server says
-    // the old one can not land. TRANSFER_AMBIGUOUS is thrown - reconcile, never re-sign.
+    // outcome is unknown or nothing was sent. Re-signs only when the server says it can not
+    // land - and then with the SAME seqno, so that even a lying server can not get these
+    // orders paid twice. TRANSFER_AMBIGUOUS is thrown - reconcile, never re-sign.
     async submit(prepared: PreparedPayment, created?: CreatedOrder[]): Promise<any> {
         let current = prepared;
         let resigns = 0, retries = 0;
@@ -240,12 +308,9 @@ export class FragmentAPIv3 {
             }
             if (r.status === 200) return r.data;
             const code = r.data?.error_code;
-            const canResign = created && resigns < 3 && (
-                (code === "TRANSFER_NOT_SENT" && r.data?.resign) ||
-                (code === "INVALID_SIGNED_MESSAGE" && r.data?.released !== undefined && /seqno/.test(r.data?.reason ?? "")));
-            if (canResign) {
+            if (created && resigns < 3 && code === "TRANSFER_NOT_SENT" && r.data?.resign) {
                 resigns++;
-                current = await this.prepare(created!);
+                current = await this.prepare(created, { seqno: current.seqno, stateInit: current.stateInit });
                 continue;
             }
             if ((code === "TRANSFER_NOT_SENT" && !r.data?.resign) || code === "TON_SERVICE_UNAVAILABLE") {
