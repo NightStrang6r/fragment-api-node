@@ -43,6 +43,7 @@ export interface CreateOrderParams {
 export interface CreatedOrder {
     order: any;
     payment: PaymentRequest | null;
+    recipientId?: string;   // Fragment's id for the recipient (fresh creates only)
 }
 
 export interface PreparedPayment {
@@ -155,7 +156,19 @@ export class FragmentAPIv3 {
             idempotency_key: p.idempotencyKey ?? null, custom_order_info: p.customOrderInfo ?? null,
         });
         if (r.status !== 200) this.fail(r);
-        return { order: r.data.order, payment: r.data.payment };
+        return { order: r.data.order, payment: r.data.payment, recipientId: r.data.recipient_id };
+    }
+
+    // The checks prepare() makes, for one order and without signing: lets a caller that
+    // batches orders turn away a bad one alone instead of failing the whole batch.
+    async checkOrder(created: CreatedOrder): Promise<void> {
+        if (!created.payment) throw new FragmentAPIError(`Order ${created.order?.id} has nothing to pay`, undefined, "NOTHING_TO_PAY");
+        try {
+            checkPayment(created.payment, this.wallet, await this.trustPolicy(), created.order.kyc !== false);
+        } catch (e) {
+            if (e instanceof UntrustedPayment) throw new FragmentAPIError(`Refusing to sign: ${e.message}`, undefined, "UNTRUSTED_PAYMENT");
+            throw e;
+        }
     }
 
     private async trustPolicy(): Promise<TrustPolicy> {
