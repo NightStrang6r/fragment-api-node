@@ -40,9 +40,12 @@ check("USDT master constant", Address.parse(USDT_MASTER).equals(Address.parse(us
 
 // --- a mock API that answers like a compromised server -----------------------------------
 let scenario = null;          // (body) => { order, payment } for the next create
+let nonces = 0;
 let submits = [];             // BoCs the client submitted
 let submitAnswers = [];       // queued submit answers
 let walletSeqno = 5;
+let lastProof = null;         // the last /v3/auth body, to check its nonce
+let revoked = 0;
 const server = createServer((req, res) => {
     let raw = "";
     req.on("data", (c) => (raw += c));
@@ -50,7 +53,9 @@ const server = createServer((req, res) => {
         const body = raw ? JSON.parse(raw) : {};
         const send = (status, data) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(data)); };
         const path = req.url.split("?")[0];
-        if (path === "/v3/auth") return send(200, { success: true, auth_key: "k".repeat(64), wallet: { address: payer.toRaw() } });
+        if (path === "/v3/auth/challenge") return send(200, { success: true, nonce: "nonce-" + (++nonces), expires_at: 0 });
+        if (path === "/v3/auth" && req.method === "DELETE") { revoked++; return send(200, { success: true }); }
+        if (path === "/v3/auth") { lastProof = body; return send(200, { success: true, auth_key: "k".repeat(64), wallet: { address: payer.toRaw() } }); }
         if (path === "/v3/config") return send(200, { fee_wallet: EVIL, middle_wallet: EVIL });
         if (path === "/v3/wallet") return send(200, { address: payer.toRaw(), state: "active", seqno: walletSeqno });
         if (path === "/v3/orders" && req.method === "POST") return send(200, { success: true, ...scenario(body) });
@@ -186,6 +191,23 @@ scenario = tonKyc;
     const second = await a.prepare([c]);
     const waited = Date.now() - t0;
     check("a new seqno waits for the old signature to expire", second.seqno === 21 && waited >= first.validUntil * 1000 + 29_000 - t0, `${waited} ms`);
+}
+
+// the proof carries the server's one-time nonce, and binds the cookies
+{
+    const a = make(caps);
+    await a.auth();
+    check("the proof payload carries the challenge nonce", lastProof?.proof?.payload?.startsWith(`fragment-api/v3:nonce-${nonces}:`), lastProof?.proof?.payload);
+    await a.revoke();
+    check("revoke() deletes the key on the server", revoked === 1);
+}
+
+// no plain HTTP to anything but this machine
+try {
+    new FragmentAPIv3({ mnemonic, walletType: "v5r1", baseUrl: "http://api.fragment-api.net", trust: caps });
+    check("http:// base URL is refused", false);
+} catch (e) {
+    check("http:// base URL is refused", /https/.test(String(e.message)));
 }
 
 server.close();

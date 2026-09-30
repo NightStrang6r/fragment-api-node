@@ -10,7 +10,7 @@ import {
     Expected, FRAGMENT_ADDRESSES, OPERATOR_FEE_WALLETS, OPERATOR_MIDDLE_WALLETS, PaymentRequest, TrustPolicy,
     UntrustedPayment, checkPayment,
 } from "./payment.js";
-import { cookiesPayload, tonProofSignature } from "./proof.js";
+import { proofPayload, tonProofSignature } from "./proof.js";
 import { MAX_MESSAGES, WalletType, signExternal, walletAddress } from "./wallet.js";
 
 export interface TrustOptions {
@@ -65,6 +65,16 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // that could still carry it will come.
 const EXPIRY_MARGIN_MS = 30_000;
 const USERNAME = /(?:^https?:\/\/t\.me\/|^@|^)([a-zA-Z0-9_]{5,32})\/?$/;
+const LOCAL_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"];
+
+// The API gets the auth key and Fragment cookies: plain HTTP only to this machine (tests).
+function checkedBaseUrl(value: string): string {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && LOCAL_HOSTS.includes(url.hostname))) {
+        throw new Error(`baseUrl must be https:// (got ${url.protocol}//${url.host})`);
+    }
+    return value.replace(/\/$/, "");
+}
 
 function untrusted(message: string): FragmentAPIError {
     return new FragmentAPIError(`Refusing to sign: ${message}`, undefined, "UNTRUSTED_PAYMENT");
@@ -112,7 +122,7 @@ export class FragmentAPIv3 {
         this.#keyPair = keyPairFromMnemonic(opts.mnemonic);
         this.wallet = walletAddress(this.walletType, this.#keyPair.publicKey);
         this.#fragmentCookies = opts.fragmentCookies;
-        this.#baseUrl = (opts.baseUrl ?? "https://api.fragment-api.net").replace(/\/$/, "");
+        this.#baseUrl = checkedBaseUrl(opts.baseUrl ?? "https://api.fragment-api.net");
         this.#http = axios.create({ baseURL: this.#baseUrl, validateStatus: () => true, timeout: 0 });
         this.#trust = { ...(opts.trust ?? {}) };
         this.#ttl = Math.min(opts.externalTtlSeconds ?? 120, 300);
@@ -123,11 +133,12 @@ export class FragmentAPIv3 {
     }
 
     // Errors never carry the request: an axios error would, and bodies hold keys.
-    private async call(method: "get" | "post", path: string, data?: any, auth = true): Promise<{ status: number; data: any }> {
+    private async call(method: "get" | "post" | "delete", path: string, data?: any, auth = true): Promise<{ status: number; data: any }> {
         const headers: Record<string, string> = {};
         if (auth) headers.Authorization = "Bearer " + (await this.ensureAuth());
         try {
             const r = method === "get" ? await this.#http.get(path, { headers, params: data })
+                : method === "delete" ? await this.#http.delete(path, { headers })
                 : await this.#http.post(path, data, { headers });
             return { status: r.status, data: r.data };
         } catch (err: any) {
@@ -143,9 +154,11 @@ export class FragmentAPIv3 {
     }
 
     async auth(): Promise<string> {
+        const challenge = await this.call("get", "/v3/auth/challenge", undefined, false);
+        if (challenge.status !== 200 || !challenge.data?.nonce) this.fail(challenge);
         const domain = new URL(this.#baseUrl).hostname;
         const timestamp = Math.floor(Date.now() / 1000);
-        const payload = cookiesPayload(this.#fragmentCookies);
+        const payload = proofPayload(String(challenge.data.nonce), this.#fragmentCookies);
         const signature = tonProofSignature(this.#keyPair, this.wallet, domain, timestamp, payload);
         const r = await this.call("post", "/v3/auth", {
             public_key: this.#keyPair.publicKey.toString("hex"),
@@ -163,6 +176,15 @@ export class FragmentAPIv3 {
 
     private async ensureAuth(): Promise<string> {
         return this.#authKey ?? this.auth();
+    }
+
+    // Revoke the auth key this client holds (e.g. when retiring a machine). The next call
+    // signs in again.
+    async revoke(): Promise<void> {
+        if (!this.#authKey) return;
+        const r = await this.call("delete", "/v3/auth");
+        if (r.status !== 200) this.fail(r);
+        this.#authKey = undefined;
     }
 
     async config(): Promise<any> {

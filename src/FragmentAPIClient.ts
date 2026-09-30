@@ -1,5 +1,14 @@
 import axios, { AxiosInstance } from "axios";
 
+let warned = false;
+// API v2 sends the seed phrase to the server. Said once per process.
+export function warnV2(): void {
+    if (warned) return;
+    warned = true;
+    process.emitWarning("FragmentAPIClient (API v2) sends your seed phrase to the server and is deprecated - " +
+        "use FragmentAPIv3, which signs payments locally.", { type: "DeprecationWarning", code: "FRAGMENT_API_V2" });
+}
+
 import FragmentAPIError from "./FragmentAPIError.js";
 
 // General methods
@@ -99,6 +108,7 @@ export default class FragmentAPIClient {
         } = options;
 
         this.baseUrl = baseUrl.replace(/\/$/, "");
+        if (seed) warnV2();
         this.authKey = authKey;
         this.walletVersion = walletVersion;
         this.defaultSeed = seed;
@@ -120,10 +130,11 @@ export default class FragmentAPIClient {
         return e;
     }
 
-    private async get(path: string) {
+    // `authKey` goes in the Authorization header: a key in a URL ends up in logs.
+    private async get(path: string, authKey?: string) {
         let response;
         try {
-            response = await this.http.get(path);
+            response = await this.http.get(path, authKey ? { headers: { Authorization: "Bearer " + authKey } } : undefined);
         } catch (err: any) {
             throw FragmentAPIClient.requestFailed(err);
         }

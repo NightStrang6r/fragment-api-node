@@ -3,7 +3,10 @@ interface CreateAuthKeyRequest {
   seed: string;
 }
 
+import { warnV2 } from "../FragmentAPIClient.js";
+
 export async function auth(this: any, fragmentCookies?: string, seed?: string) {
+    warnV2();
     const req: CreateAuthKeyRequest = {
         fragment_cookies: this.getFragmentCookies(fragmentCookies),
         seed: this.getSeed(seed),

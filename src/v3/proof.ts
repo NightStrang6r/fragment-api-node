@@ -3,9 +3,11 @@ import { createHash } from "node:crypto";
 import { Address } from "./address.js";
 import { KeyPair } from "./keys.js";
 
-export function cookiesPayload(fragmentCookies?: string | null): string {
+// "fragment-api/v3:" + the one-time nonce from /v3/auth/challenge + ":" + sha256 hex of the
+// cookies sent with the proof (or nothing): binds the proof to that nonce and those cookies.
+export function proofPayload(nonce: string, fragmentCookies?: string | null): string {
     const digest = fragmentCookies ? createHash("sha256").update(fragmentCookies, "utf8").digest("hex") : "";
-    return "fragment-api/v3:" + digest;
+    return `fragment-api/v3:${nonce}:${digest}`;
 }
 
 export function tonProofSignature(keyPair: KeyPair, wallet: Address, domain: string, timestamp: number, payload: string): Buffer {
