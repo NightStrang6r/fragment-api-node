@@ -8,7 +8,7 @@ import { inspect } from "node:util";
 import { FragmentAPIv3 } from "../lib/v3/client.js";
 import { Address, loadAddress, storeAddress } from "../lib/v3/address.js";
 import { beginCell, cellFromBase64 } from "../lib/v3/cell.js";
-import { usdtWalletOf, USDT_MASTER } from "../lib/v3/payment.js";
+import { usdtWalletOf, USDT_MASTER, OPERATOR_FEE_WALLETS, OPERATOR_MIDDLE_WALLETS } from "../lib/v3/payment.js";
 
 const vectors = JSON.parse(readFileSync(new URL("./v3-vectors.json", import.meta.url)));
 const usdtVectors = JSON.parse(readFileSync(new URL("./usdt-wallet-vectors.json", import.meta.url)));
@@ -110,6 +110,21 @@ await refuses("fee wallet named only by /v3/config is refused", async () => {
     scenario = (body) => ({ order: order(body), payment: request([msg("fragment", FRAGMENT, 250_000_000n, comment("Ref#5")), msg("fee", EVIL, 5_000_000n, comment("fee"))]) });
     await a.payOrders([await a.createOrder(stars)]);
     check("... unless trustServerConfig is on", true);
+}
+
+// the service's own wallets are pinned in the release: they need no trust option
+for (const [name, kyc, leg] of [
+    ["a fee leg to the pinned fee wallet is signed", true, () => msg("fee", OPERATOR_FEE_WALLETS[0], 5_000_000n, comment("fee"))],
+    ["a no-KYC payment to the pinned middle wallet is signed", false, () => msg("middle", OPERATOR_MIDDLE_WALLETS[0], 255_000_000n, comment("Ref#P"))],
+]) {
+    scenario = (body) => ({ order: order(body), payment: request(kyc ? [msg("fragment", FRAGMENT, 250_000_000n, comment("Ref#P")), leg()] : [leg()]) });
+    try {
+        const a = make({ maxTonPerOrder: 5 });
+        await a.payOrders([await a.createOrder({ ...stars, kyc })]);
+        check(name, true);
+    } catch (e) {
+        check(name, false, `${e.error_code}: ${e.message}`);
+    }
 }
 
 // an inflated Fragment leg makes 5 % of it the whole wallet: the cap holds

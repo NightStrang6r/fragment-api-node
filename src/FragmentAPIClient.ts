@@ -120,8 +120,8 @@ export default class FragmentAPIClient {
     }
 
     // An axios error carries the whole request: for /v2/auth that is the seed and
-    // the Fragment cookies, for every other call the auth key. Callers log errors
-    // whole - that is how seeds ended up in a server's logs - so they get only the
+    // the Fragment cookies, for every other call the auth key. Callers often log
+    // errors whole, which would put those in their logs - so they get only the
     // cause: the same message and code, without the request.
     private static requestFailed(err: any): FragmentAPIError {
         const e: FragmentAPIError & { code?: string } = new FragmentAPIError(

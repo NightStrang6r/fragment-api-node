@@ -1,7 +1,10 @@
 import FragmentAPIClient from "./lib/FragmentAPIClient.js";
 export default FragmentAPIClient;
 export { FragmentAPIv3 } from "./lib/v3/client.js";
+export type { FragmentAPIv3Options, TrustOptions, CreateOrderParams, CreatedOrder, PreparedPayment } from "./lib/v3/client.js";
 export { keyPairFromMnemonic, isValidMnemonic } from "./lib/v3/keys.js";
+export type { KeyPair } from "./lib/v3/keys.js";
 export { FRAGMENT_ADDRESSES, OPERATOR_FEE_WALLETS, OPERATOR_MIDDLE_WALLETS, USDT_MASTER, usdtWalletOf } from "./lib/v3/payment.js";
+export type { PaymentMethod, PaymentRequest, PaymentMessage } from "./lib/v3/payment.js";
 export { Address } from "./lib/v3/address.js";
 export { default as FragmentAPIError } from "./lib/FragmentAPIError.js";

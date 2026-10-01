@@ -17,7 +17,7 @@
 ## 🚀 **Info**
 
 **fragment-api** is the NodeJS client for [Fragment API](https://fragment-api.net). Since
-version 1.1.0 it speaks **API v3**: the server prepares each payment, this library checks
+version 2.0.0 it speaks **API v3**: the server prepares each payment, this library checks
 it and **signs it on your machine** - your seed phrase is never sent anywhere.
 
 - 💸 Buy **Telegram Stars**, **Premium** and **TON** for any username
@@ -235,8 +235,8 @@ const result = await api.submit(prepared, [created]);
 
 ## ⚠️ **Errors**
 
-Failures throw a `FragmentAPIError` with `message`, `status`, `error_code` and `details`
-(the server's answer). The ones to handle:
+Failures throw a `FragmentAPIError` (`import { FragmentAPIError } from "fragment-api"`) with
+`message`, `status`, `error_code` and `details` (the server's answer). The ones to handle:
 
 | `error_code` | What happened | What to do |
 |---|---|---|
@@ -266,7 +266,8 @@ try {
 ## 🔁 **Migrating from API v2**
 
 v1 and v2 send your seed phrase to the server. They are deprecated and will be switched
-off - move to `FragmentAPIv3`:
+off - move to `FragmentAPIv3`. Coming from 1.0.x (`new FragmentAPIClient(seed, cookies)`,
+API v1)? Its methods are gone in 2.0.0, the same table applies:
 
 | v2 (`FragmentAPIClient`) | v3 (`FragmentAPIv3`) |
 |---|---|

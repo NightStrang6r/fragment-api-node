@@ -1,11 +1,14 @@
 {
   "name": "fragment-api",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "❇️ NodeJS API client wrapper for Fragment, purchase of Telegram Stars & Premium 💙",
   "type": "module",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "build": "tsc",
+    "test": "node test/v3-vectors.mjs && node test/v3-trust.mjs",
+    "prepublishOnly": "npm run build && npm test",
     "example": "node example.js"
   },
   "repository": {
@@ -13,14 +16,15 @@
     "url": "git+https://github.com/NightStrang6r/fragment-api-node.git"
   },
   "author": "NightStrang6r",
-  "license": "Apache 2.0",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/NightStrang6r/fragment-api-node/issues"
   },
   "homepage": "https://github.com/NightStrang6r/fragment-api-node#readme",
   "files": [
     "lib/",
-    "index.js"
+    "index.js",
+    "index.d.ts"
   ],
   "dependencies": {
     "axios": "^1.9.0"

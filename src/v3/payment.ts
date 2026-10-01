@@ -1,12 +1,12 @@
 // What the SDK checks before it signs a payment the server asked for (docs/api-v3.md).
 //
 // The server no longer holds the seed, but it still says what to sign. Signing whatever
-// arrives would let a compromised server spend as before, so every message is checked
-// against things the server does not control: the order the CALLER asked for (not the
-// server's echo of it), Fragment's addresses and the service's wallets pinned here, the
-// payer's own USDT wallet (derived here), a fee ceiling, and the caller's per-order caps
-// - required, because Fragment's payload can not be checked: a compromised server could
-// hand over an invoice for someone else's purchase, and the cap is what bounds that.
+// arrives would let a compromised server spend as if it held the seed, so every message is
+// checked against things the server does not control: the order the CALLER asked for (not
+// the server's echo of it), Fragment's addresses and the service's wallets pinned here,
+// the payer's own USDT wallet (derived here), a fee ceiling, and the caller's per-order
+// caps - required, because Fragment's payload can not be checked: a compromised server
+// could hand over an invoice for someone else's purchase, and the cap is what bounds that.
 import { Address, loadAddress, storeAddress } from "./address.js";
 import { Cell, beginCell, cellFromBase64, libraryCell } from "./cell.js";
 
@@ -19,11 +19,12 @@ export const FRAGMENT_ADDRESSES: readonly string[] = [
 ];
 
 // The service's own wallets, pinned at release like Fragment's: the fee wallet (`fee`
-// legs) and the middle wallet (no-KYC `middle` legs). Fill in before publishing. Empty
-// trusts none: such legs are refused unless the caller names the wallets
-// (trust.feeWallets / trust.middleWallets) or opts into trust.trustServerConfig.
-export const OPERATOR_FEE_WALLETS: readonly string[] = [];
-export const OPERATOR_MIDDLE_WALLETS: readonly string[] = [];
+// legs) and the middle wallet (no-KYC `middle` legs), both what api.fragment-api.net's
+// /v3/config names (2026-10-01). Another wallet is trusted only if the caller names it
+// (trust.feeWallets / trust.middleWallets) or opts into trust.trustServerConfig; a new
+// service wallet means a new release.
+export const OPERATOR_FEE_WALLETS: readonly string[] = ["UQDXImli_ztqzCuDYTDLH0z6PU56BhYtTHHdAWS2SfuJtCAT"];
+export const OPERATOR_MIDDLE_WALLETS: readonly string[] = ["UQDXImli_ztqzCuDYTDLH0z6PU56BhYtTHHdAWS2SfuJtCAT"];
 
 export const USDT_MASTER = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
 // USDT's jetton wallet code is a library cell referencing this hash - what the USDT master's
